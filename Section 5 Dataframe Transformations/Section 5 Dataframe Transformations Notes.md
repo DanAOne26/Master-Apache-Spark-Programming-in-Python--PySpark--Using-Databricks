@@ -18,14 +18,12 @@ We should have imported all required files in section 9. Setuo Your Hands-On Env
 
 Login to Databricks, connect to serverless cluster and open CH05-Transformations/01-add-remove-rename-columns notebook
 
-1. Create a dataframe as below
-  +---+--------+---+------+
-  | id|    name|age|salary|
-  +---+--------+---+------+
-  |100|Prashant| 45| 45000|
-  |101|   Tarun| 36| 33000|
-  |102|   David| 48| 28000|
-  +---+--------+---+------+
+### 1. Create a dataframe as below
+
+<img src="pics/create-dataframe-5-21.png" width="300" />
+<br>
+<br>
+
 
 
 Create the dataframe:
@@ -49,7 +47,7 @@ data_list = [(100, "Prashant", 45, 45000),
 sample_df = spark.createDataFrame(data=data_list, schema=schema)
 ```
 
-2. Add following columns to your Dataframe
+### 2. Add following columns to your Dataframe
    - increment: 10% of the salary up to 3000 maximum increment
    - revised_salary: salary + increment 
 
@@ -79,7 +77,7 @@ salary_df.display()
 
 
 
-3. Add following columns to your Dataframe
+### 3. Add following columns to your Dataframe
    - increment: 10% of the salary up to 3000 maximum increment
 - Replace the following column in your dataframe
    - salary: current salary + increment
@@ -107,7 +105,7 @@ salary_df.display()
 
 
 
-4. Add a batch number (uuid) column to your dataframe
+### 4. Add a batch number (uuid) column to your dataframe
 
 ```python
 # import required libraries
@@ -131,7 +129,7 @@ salary_batch_df.display()
 <br>
 
 
-5. Rename the dataframe colums as listed below
+### 5. Rename the dataframe colums as listed below
     - increment - annual_increment
     - salary - incremented_salary
 
@@ -155,7 +153,7 @@ new_salary_df.display()
 
 
 
-6. Remove the following colums from your dataframe
+### 6. Remove the following colums from your dataframe
     - age
     - annual_increment
 
@@ -345,18 +343,12 @@ Login to Databricks, connect to serverless cluster and open CH05-Transformations
 
 **Requirement**
 ### 1. Create a test Dataframe as shown below
+ 
+<img src="pics/create-df-5-23-1.png" width="300" />
+<br>
+<br>
 
-  +---+---------+-----------+--------+
-  | id|   source|destination|distance|
-  +---+---------+-----------+--------+
-  |101|   Mumbai|        Goa|     587|
-  |102|   Mumbai|  Bangalore|     985|
-  |102|   Mumbai|  Bangalore|     985|
-  |103|    Delhi|    Chennai|    2208|
-  |104|    Delhi|    Chennai|    2208|
-  |105|Bangalore|    Kolkata|    1868|
-  |105|Bangalore|    Kolkata|    1865|
-  +---+---------+-----------+--------+
+
 
 
 ### 2. Select records that satisfy the follwing criteria
@@ -442,7 +434,7 @@ So this approach is same as the approach we used to write the expression with th
 df.filter((df.source == 'Mumbai') & (df.destination == 'Bangalore')).display()
 ```
 
-<img src="pics/filters-and-dup-removal-2-4-result.png" width="600" />
+<img src="pics/filters-and-dup-removal-2-1-result.png" width="600" />
 <br>
 <br>
 
@@ -509,7 +501,7 @@ We should have imported all required files in section 9. Setup Your Hands-On Env
 Login to Databricks, connect to serverless cluster and open CH05-Transformations/04-Sorting Limiting and Collecting notebook
 
 
-1. Read data from flight_timetable
+### 1. Read data from flight_timetable
 
 ```python
 flight_time_df = spark.read.table("dev.spark_db.flight_time")
@@ -517,7 +509,7 @@ flight_time_df.display()
 ```
 
 
-2. Find the top 3 most delayed flights on 2000-01-16 from AUS to ORD
+### 2. Find the top 3 most delayed flights on 2000-01-16 from AUS to ORD
 
 Collect the results into a list and display the output as the following.
 - AA flight delayed by 5.0 minutes
@@ -577,7 +569,7 @@ UA flight delayed by 2.0 minutes
 
 
 
-3. Find the third most delayed flights on 2000-01-16 from AUS to ORD
+### 3. Find the third most delayed flights on 2000-01-16 from AUS to ORD
 
 ```python
 top_3rd_df = (
@@ -611,9 +603,9 @@ We should have imported all required files in section 9. Setup Your Hands-On Env
 Login to Databricks, connect to serverless cluster and open CH05-Transformations/05-Transforming Unstructured data notebook
 
 
-1. Read data from the apache-logs.txt file
+### 1. Read data from the apache-logs.txt file
 
-1.1 Load and display the data
+#### 1.1 Load and display the data
 
 ```python
 file_df = (
@@ -639,7 +631,7 @@ Every line of text in the file is presented as a single line in column named "va
 
 
 
-1.2 Print the schema
+#### 1.2 Print the schema
 
 ```python
 file_df.printSchema()
@@ -653,7 +645,7 @@ root
 
 
 
-2. Develop a strategy to extract the following fields
+### 2. Develop a strategy to extract the following fields
     1. ip_address: It is the IP address of the site visitor.
     2. visit_timestamp: It is the date and time of the site visit. Parse and format the timestamp to YYYY-MM-DD HH:MI:SS Z
     3. visit_resource: Which resource from our website was accessed
@@ -662,14 +654,14 @@ root
 
 
 
-2.1 Develop a regular expression
+#### 2.1 Develop a regular expression
 
 ```python
 # regular expression to parse the apache log file record
 log_reg = r'^(\S+) (\S+) (\S+) \[([\w:/]+\s[+\-]\d{4})\] "(\S+) (\S+) (\S+)" (\d{3}) (\S+) "(\S+)" "([^"]*)'
 ```
 
-2.2 Apply regular expression to parse the record
+#### 2.2 Apply regular expression to parse the record
 
 ```python
 # import required libraries
@@ -697,7 +689,7 @@ logs_df.display()
 <br>
 
 
-2.3 Refine results with further transformations
+#### 2.3 Refine results with further transformations
 
 ```python
 # to_timestamp() is used to convert a string to timestamp format, substring_index() is used to extract the domain name from the referring URL
@@ -726,9 +718,9 @@ test_df.display()
 
 [⬆ Back to content](#content)
 
-3. Use AI to parse and extract the required information from unstructured data
+### 3. Use AI to parse and extract the required information from unstructured data
 
-3.1 Prepare an AI prompt to extract the required information
+#### 3.1 Prepare an AI prompt to extract the required information
 
 ```python
 prompt = """
@@ -748,7 +740,7 @@ Record:
 ```
 
 
-3.2 Develop an AI query expression
+#### 3.2 Develop an AI query expression
 
 ```python
 # import required libraries
@@ -783,7 +775,7 @@ result_df.display()
 
 
 
-3.3 Parse the JSON extract to individual columns
+#### 3.3 Parse the JSON extract to individual columns
 
 ```python
 # import required libraries
