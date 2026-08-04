@@ -1078,6 +1078,19 @@ Login to Databricks, connect to serverless cluster and open CH06-Working with Da
 
 Read data from students_offline.csv file and load into offline_students_raw table.
 
+This is the data structure:
+
+students_offline.csv
+
+```csv
+ID,FirstName,LastName,Address,Skills,Contacts
+101,Prashant,Pandey,"{""AddressLine1"":""D104 Gopalan Squire"",""AddressLine2"":""Whitefield"",""City"":""Bangalore"",""Country"":""India"",""Pin"":""560001"",""State"":""Karnataka""}","[{""Skill"":""Apache Spark"",""YearsOfExperience"":""5""},{""Skill"":""Apache Kafka"",""YearsOfExperience"":""6""}]","{""email"":""xyz@abc.com"",""phone"":""9823128923""}"
+102,David,Turner,"{""AddressLine1"":""109 Park Street"",""AddressLine2"":""Richmond"",""City"":""London"",""Country"":""Engaland"",""Pin"":""EC1A"",""State"":""London""}","[{""Skill"":""Java"",""YearsOfExperience"":""12""},{""Skill"":""Spring Boot"",""YearsOfExperience"":""6""}]","{""phone"":""9873145698""}"
+103,Katie,Mcloskey,"{""AddressLine1"":""9th Avenue"",""AddressLine2"":""Dorsy Road"",""City"":""Belfast"",""Country"":""Northern Ireland"",""Pin"":""BT1 1BG"",""State"":""Belfast""}","[{""Skill"":""SQL"",""YearsOfExperience"":""12""},{""Skill"":""PL/SQL"",""YearsOfExperience"":""8""}]","{""email"":""ert89@abc.com""}"
+104,Nasima,Khatun,"{""AddressLine1"":""G105 MG Tower"",""AddressLine2"":""Bregade Road"",""City"":""Kolkata"",""Country"":""India"",""Pin"":""7000001"",""State"":""West Bengal""}","[{""Skill"":""Hadoop"",""YearsOfExperience"":""3""},{""Skill"":""Apache Spark"",""YearsOfExperience"":""2""}]","{""email"":""magt23@abc.com"",""office"":""7896524689""}"
+105,Pritam,Jain,"{""AddressLine1"":""M206 Richmond Tower"",""AddressLine2"":""Electronic City"",""City"":""Bangalore"",""Country"":""India"",""Pin"":""560001"",""State"":""Karnataka""}","[{""Skill"":""Python"",""YearsOfExperience"":""10""},{""Skill"":""SQL"",""YearsOfExperience"":""15""},{""Skill"":""Apache Spark"",""YearsOfExperience"":""3""},{""Skill"":""Databases"",""YearsOfExperience"":""15""}]","{""phone"":""6984753281"",""whatsapp"":""6924587322""}"
+```
+
 ```python
 # create schema with string format for all columns
 offline_students_schema = "ID string, FirstName string, LastName string, Address string, Skills string, Contacts string"
@@ -1087,9 +1100,9 @@ offline_students_raw_df = (
     # spark - session, read.format("csv") - connector
     spark.read.format("csv")
         # options for the connector for header line, quota and escape 
-        .option("header", "true")
-        .option("quote", "\"")
-        .option("escape", "\"")
+        .option("header", "true")       # skip header row
+        .option("quote", "\"")          # skip the first double quote because each line is represented as a single string
+        .option("escape", "\"")         # skip the first double quote for each object in the data
         # use the created schema
         .schema(offline_students_schema)
         # path to the data file
@@ -1101,6 +1114,12 @@ offline_students_raw_df.display()
 # save/overwrite the dataframe as a table
 offline_students_raw_df.write.mode("overwrite").saveAsTable("dev.spark_db.offline_students_raw")
 ```
+
+Everithing is string as planned
+
+<img src="pics/complexdata-craete-table-6-33-0.png" width="400"/>
+<br>
+<br>
 
 <img src="pics/complexdata-craete-table-6-33-1.png" width="1000"/>
 <br>
@@ -1117,6 +1136,15 @@ offline_students_raw_df.write.mode("overwrite").saveAsTable("dev.spark_db.offlin
 ### 2. Analysis Requirement
 
 We want to know country wise student count.
+
+Spark gives us three complex data types to handle such kind of situations. One is struct, the second data type is array and third data type is map. Simple record is considered as struct - like in the first line in the schema.
+
+fromom_json() - pars the data from offline_students_raw table in separate structure - address with specified schema. This is slow operation.
+
+So one approach to handle complex data, something like JSON data, is to save it or store it in your table as a string. And at the time of query or at the time of analysis, parse it from string to a complex data type. For example, struct type or into an array type or into a map type. There is no harm in that, but we have a performance problem, a potential performance problem for large tables. So this is not a very good approach.
+
+So what we can do as a data engineer we should not be loading data, a complex data like JSON strings as a string in our table. 
+We can create a raw table to load a string into that table, but we should parse it once for all and create a final table. Go to 3. Requirements
 
 ```sql
 with offline_students(
@@ -1148,29 +1176,40 @@ group by address.country
 Prepare an offline_students table which is ready for analysis
 
 Complex Data Types in Spark
-  - Struct
+  - Struct - consistent data
   - Array
-  - Map
+  - Map - not consistent data - key : value pairs
 
 
 ```python
+# import libraries
 from pyspark.sql.functions import from_json
 
+# define schemas for the all complex data types
+# struct - consistent data 
 address_schema = "struct<AddressLine1 string, AddressLine2 string, City string, Country string, Pin string, State string>"
+# define two data types schema from nested structure
 skills_schema = "array<struct<Skill string, YearsOfExperience string>>"
+# key - value pair of strings - not consistent data
 contacts_schema = "map<string, string>"
 
+# create newdf from the raw we craeted earlier
 offline_students_df = (
     offline_students_raw_df.withColumns({
+        # transform all columns from json fomrat as defined schemas
         "address": from_json("address", address_schema),
         "skills": from_json("skills", skills_schema),
         "contacts": from_json("contacts", contacts_schema)
     })
 )
 
+# display the created dataframe
 offline_students_df.display()
+# create a table from the created dataframe
 offline_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.offline_students")
 ```
+
+We can check the the data is as we defined the schemas:
 
 <img src="pics/complexdata-analysis-filter-6-33-3-1.png" width="1000"/>
 <br>
@@ -1179,6 +1218,8 @@ offline_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.offline_st
 <img src="pics/complexdata-analysis-filter-6-33-3-2.png" width="1000"/>
 <br>
 <br>
+
+And this is what we wanted to do - write a table offline_students with a complex data type so that our analytics team can easily use queries for doing the analysis.
 
 
 
@@ -1198,6 +1239,7 @@ from dev.spark_db.offline_students
 group by address.Country
 ```
 
+This is the benefit of complex data type over the string data type - analytics team can directly use this data. They don't have to parse the address again and again for each query.
 
 <img src="pics/complexdata-analysis-filter-6-33-4-1.png" width="300"/>
 <br>
