@@ -1302,58 +1302,82 @@ So ideally we have an option to parse it once for all. Keep it as a complex data
 
 [⬆ Back to content](#content)
 
-### Subheader
-
-
+### 1. Requirement
+Read data from students_online.json file and load into online_students table.
 
 ```python
+online_students_schema = """
+    ID string, FirstName string, LastName string,
+    Address struct<AddressLine1 string, AddressLine2 string, City string, State string, Country string, Pin string>,
+    Skills array<struct<Skill string, YearsOfExperience string>>,
+    Contacts map<string, string>
+    """
+
+online_students_df = (
+    spark.read.format("json")
+        .schema(online_students_schema)
+        .load("/Volumes/dev/spark_db/datasets/spark_programming/data/students_online.json")
+)
+
+#online_students_df.display()
+online_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.online_students")
+```
+
+<img src="pics/working with-JSON-34-1.png" width="400"/>
+<br>
+<br>
+
+
+### 2. Requirement
+Perform the following analysis
+   1. What is country wise student count
+   2. Find all students with more than 1 year of Spark knowledge
+   3. Find all students who didn't provide phone or whatsapp
+
+
+#### 2.1. What is country wise student count
+
+```sql
+-- select address.coutry records from table online_students and count them
+select Address.Country, count(*) as count
+from dev.spark_db.online_students
+group by Address.Country
+```
+
+<img src="pics/working with-JSON-34-2-1.png" width="300"/>
+<br>
+<br>
+
+
+
+#### 2.2 Find all students with more than 1 year of Spark knowledge
+
+```sql
+with online_students_skills(
+  select id, firstname, LastName, explode(Skills) as skills
+  from dev.spark_db.online_students)
+select id, firstname, lastname, skills.*
+from online_students_skills
+where skills.skill like "%Spark%" and skills.YearsOfExperience > 1
 
 ```
 
-
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-JSON-34-2-2.png" width="600"/>
 <br>
 <br>
 
 
 
+#### 2.3 Find all students who didn't provide phone or whatsapp
 
-
-
-```python
+```sql
+select id, FirstName, LastName, Contacts['email'] as email
+from dev.spark_db.online_students
+where Contacts['phone'] is null and Contacts['whatsapp'] is null
 
 ```
 
-
-<img src="pics/name.png" width="400"/>
-<br>
-<br>
-
-
-
-
-
-
-```python
-
-```
-
-
-<img src="pics/name.png" width="400"/>
-<br>
-<br>
-
-
-
-
-
-
-```python
-
-```
-
-
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-JSON-34-2-3.png" width="400"/>
 <br>
 <br>
 
