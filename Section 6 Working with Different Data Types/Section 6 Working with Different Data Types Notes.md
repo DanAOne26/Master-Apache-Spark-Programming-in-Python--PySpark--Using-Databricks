@@ -1250,15 +1250,20 @@ This is the benefit of complex data type over the string data type - analytics t
 #### 4.2 Find all students with more than 1 year of Spark knowledge
 
 ```sql
+-- create new table offline_students_skills
 with offline_students_skills(
+   -- set columns id, FirstName, LastName and separate each skill and years of experience
    select id, FirstName, LastName, explode(skills) as skills
+   -- load the data from the existing table
    from dev.spark_db.offline_students
 )
+
+-- select data from the new table
 select id, firstname, lastname, skills.*
 from offline_students_skills
+-- filter records for 'Spark' skill and more than one year of experience for this specific skill
 where skills.Skill like "%Spark%" and skills.YearsOfExperience > 1
 ```
-
 
 <img src="pics/complexdata-analysis-filter-6-33-4-2.png" width="600"/>
 <br>
@@ -1270,8 +1275,10 @@ where skills.Skill like "%Spark%" and skills.YearsOfExperience > 1
 #### 4.3 Find all students who didn't provide phone or whatsapp
 
 ```sql
+-- select fields from the table
 select ID, FirstName, LastName, contacts['email']
 from dev.spark_db.offline_students
+-- filter the records by empty phone and whatsapp
 where contacts['phone'] is null and contacts['whatsapp'] is null
 ```
 
@@ -1280,6 +1287,10 @@ where contacts['phone'] is null and contacts['whatsapp'] is null
 <br>
 <br>
 
+
+In this lecture we learned that we should not be keeping JSON or complex values as a string. But if we do that, then we have to parse those strings every time we want to query that table. And that is a performance overhead for your tables.
+
+So ideally we have an option to parse it once for all. Keep it as a complex data type either struct or array or map wherever whatever fits. Design the data model accordingly and prepare our tables for easy and fast analysis.
 
 
 [⬆ Back to content](#content)
