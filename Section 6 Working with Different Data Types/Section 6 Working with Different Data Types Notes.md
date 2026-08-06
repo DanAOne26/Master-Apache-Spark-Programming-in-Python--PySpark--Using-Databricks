@@ -1302,10 +1302,28 @@ So ideally we have an option to parse it once for all. Keep it as a complex data
 
 [⬆ Back to content](#content)
 
+We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
+
+Login to Databricks, connect to serverless cluster and open CH06-Working with Data Types/07-Working with JSON data notebook
+
+
 ### 1. Requirement
+
 Read data from students_online.json file and load into online_students table.
 
+students_online.json
+
+```json
+{"ID":"101","FirstName":"Prashant","LastName":"Pandey","Address":{"AddressLine1":"D104 Gopalan Squire","AddressLine2":"Whitefield","City":"Bangalore","State":"Karnataka","Country":"India","Pin":"560001"},"Skills":[{"Skill":"Apache Spark","YearsOfExperience":"5"},{"Skill":"Apache Kafka","YearsOfExperience":"6"}],"Contacts":{"phone":"9823128923","email":"xyz@abc.com"}}
+{"ID":"102","FirstName":"David","LastName":"Turner","Address":{"AddressLine1":"109 Park Street","AddressLine2":"Richmond","City":"London","State":"London","Country":"Engaland","Pin":"EC1A"},"Skills":[{"Skill":"Java","YearsOfExperience":"12"},{"Skill":"Spring Boot","YearsOfExperience":"6"}],"Contacts":{"phone":"9873145698"}}
+{"ID":"103","FirstName":"Katie","LastName":"Mcloskey","Address":{"AddressLine1":"9th Avenue","AddressLine2":"Dorsy Road","City":"Belfast","State":"Belfast","Country":"Northern Ireland","Pin":"BT1 1BG"},"Skills":[{"Skill":"SQL","YearsOfExperience":"12"},{"Skill":"PL/SQL","YearsOfExperience":"8"}],"Contacts":{"email":"ert89@abc.com"}}
+{"ID":"104","FirstName":"Nasima","LastName":"Khatun","Address":{"AddressLine1":"G105 MG Tower","AddressLine2":"Bregade Road","City":"Kolkata","State":"West Bengal","Country":"India","Pin":"7000001"},"Skills":[{"Skill":"Hadoop","YearsOfExperience":"3"},{"Skill":"Apache Spark","YearsOfExperience":"2"}],"Contacts":{"email":"magt23@abc.com","office":"7896524689"}}
+{"ID":"105","FirstName":"Pritam","LastName":"Jain","Address":{"AddressLine1":"M206 Richmond Tower","AddressLine2":"Electronic City","City":"Bangalore","State":"Karnataka","Country":"India","Pin":"560001"},"Skills":[{"Skill":"Python","YearsOfExperience":"10"},{"Skill":"SQL","YearsOfExperience":"15"},{"Skill":"Apache Spark","YearsOfExperience":"3"},{"Skill":"Databases","YearsOfExperience":"15"}],"Contacts":{"whatsapp":"6924587322","phone":"6984753281"}}
+```
+
+
 ```python
+# define schema
 online_students_schema = """
     ID string, FirstName string, LastName string,
     Address struct<AddressLine1 string, AddressLine2 string, City string, State string, Country string, Pin string>,
@@ -1313,17 +1331,31 @@ online_students_schema = """
     Contacts map<string, string>
     """
 
+# create dataframe from the table with the specified schema
 online_students_df = (
+    # spark - session, read.format(json) - connector
     spark.read.format("json")
+        # use the created schema
         .schema(online_students_schema)
+        # path to the source data file
         .load("/Volumes/dev/spark_db/datasets/spark_programming/data/students_online.json")
 )
 
-#online_students_df.display()
+# display the dataframe
+online_students_df.display()
+# craete new table with the dataframe
 online_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.online_students")
 ```
 
 <img src="pics/working with-JSON-34-1.png" width="400"/>
+<br>
+<br>
+
+<img src="pics/working with-JSON-34-1-1.png" width="1200"/>
+<br>
+<br>
+
+<img src="pics/working with-JSON-34-1-2.png" width="1200"/>
 <br>
 <br>
 
@@ -1347,7 +1379,6 @@ group by Address.Country
 <img src="pics/working with-JSON-34-2-1.png" width="300"/>
 <br>
 <br>
-
 
 
 #### 2.2 Find all students with more than 1 year of Spark knowledge
