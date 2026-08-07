@@ -1322,7 +1322,19 @@ students_online.json
 ```
 
 
+How do we load this data file. We have two options :
+
+1. Read it as a text file And load each record as a string - single column and one value for the column, which is your JSON string. Then next row - single column one value called JSON string. So first option is to read it as a text file where we have entire JSON string loaded as a single field. And then we can use from_json() to parse this JSON and extract different columns the id, first name, last name, address, etc. as an appropriate data type, ID could go as a string, first name, last name can be converted to string fields, address is a complex data type, so this can be converted into a struct, skills is an array, so it can be converted into a complex data type - array type. Similarly, contacts looks like a key value pair, so this can be converted into a map.
+
+2. We have a JSON connector for spark which internally does all the tranformations we need. It internally reads the JSON string and converts it into a complex data type, or converts all the fields into appropriate data type. if we have a JSON file which contains complete JSON record and it's not with mixed fields We can directly use the JSON connector. It will do everything in the single step - JSON connector will read these files and load it as an appropriate data type, so we don't have to manually parse the JSON string using the from_json().
+
+So we are going to use option #2 and that's the preferred approach for working with JSON files.
+
+First we need to define the schema and defining a schema is super simple. We need to know what are the fields, so easier way is to copy one value as a reference and then use it to define the schema.
+
 ```python
+# reference line:
+# {"ID":"101","FirstName":"Prashant","LastName":"Pandey","Address":{"AddressLine1":"D104 Gopalan Squire","AddressLine2":"Whitefield","City":"Bangalore","State":"Karnataka","Country":"India","Pin":"560001"},"Skills":[{"Skill":"Apache Spark","YearsOfExperience":"5"},{"Skill":"Apache Kafka","YearsOfExperience":"6"}],"Contacts":{"phone":"9823128923","email":"xyz@abc.com"}}
 # define schema
 online_students_schema = """
     ID string, FirstName string, LastName string,
@@ -1369,6 +1381,8 @@ Perform the following analysis
 
 #### 2.1. What is country wise student count
 
+So we know that this can be fulfilled by simple query group by country and take the count. But country is sitting inside the address field. But that's not a problem. Address is already an object and we have country here so we can directly access the country easily. It's not a string. It's a complex data type, very well represented by different fields in an object.
+
 ```sql
 -- select address.coutry records from table online_students and count them
 select Address.Country, count(*) as count
@@ -1384,11 +1398,19 @@ group by Address.Country
 #### 2.2 Find all students with more than 1 year of Spark knowledge
 
 ```sql
+-- create new table online_students_skills
 with online_students_skills(
+  -- set the table columns - id, firstname, LastName and all skills and their years of experience 
+  -- firstname or FirstName - not case sensitive, Same extends to the object fields for complex data types.
   select id, firstname, LastName, explode(Skills) as skills
+  -- from where to read
   from dev.spark_db.online_students)
+-- select the columns we need to read and skills.* will give us separate fields for each field in the complex data types
 select id, firstname, lastname, skills.*
+-- set the source table
 from online_students_skills
+-- filter the required skill (all skills containing 'Spark') and years of experience
+-- object field names are not case sensitive - it means we don't have to worry about case sensitive skill - capital S and K.
 where skills.skill like "%Spark%" and skills.YearsOfExperience > 1
 
 ```
@@ -1402,8 +1424,11 @@ where skills.skill like "%Spark%" and skills.YearsOfExperience > 1
 #### 2.3 Find all students who didn't provide phone or whatsapp
 
 ```sql
+-- select fields we want to read and emails for reaching them and ask for phone number
 select id, FirstName, LastName, Contacts['email'] as email
+-- specify the table we read from
 from dev.spark_db.online_students
+-- filters for the target records - empty records for phone nad whatapp
 where Contacts['phone'] is null and Contacts['whatsapp'] is null
 
 ```
