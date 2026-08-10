@@ -1461,29 +1461,57 @@ Spark latest version has introduced a new data type called variant type. Variant
 
 Read data from students_offline.csv file and load into offline_students_raw table.
 
+students_offline.csv
+
+```csv
+ID,FirstName,LastName,Address,Skills,Contacts
+101,Prashant,Pandey,"{""AddressLine1"":""D104 Gopalan Squire"",""AddressLine2"":""Whitefield"",""City"":""Bangalore"",""Country"":""India"",""Pin"":""560001"",""State"":""Karnataka""}","[{""Skill"":""Apache Spark"",""YearsOfExperience"":""5""},{""Skill"":""Apache Kafka"",""YearsOfExperience"":""6""}]","{""email"":""xyz@abc.com"",""phone"":""9823128923""}"
+102,David,Turner,"{""AddressLine1"":""109 Park Street"",""AddressLine2"":""Richmond"",""City"":""London"",""Country"":""Engaland"",""Pin"":""EC1A"",""State"":""London""}","[{""Skill"":""Java"",""YearsOfExperience"":""12""},{""Skill"":""Spring Boot"",""YearsOfExperience"":""6""}]","{""phone"":""9873145698""}"
+103,Katie,Mcloskey,"{""AddressLine1"":""9th Avenue"",""AddressLine2"":""Dorsy Road"",""City"":""Belfast"",""Country"":""Northern Ireland"",""Pin"":""BT1 1BG"",""State"":""Belfast""}","[{""Skill"":""SQL"",""YearsOfExperience"":""12""},{""Skill"":""PL/SQL"",""YearsOfExperience"":""8""}]","{""email"":""ert89@abc.com""}"
+104,Nasima,Khatun,"{""AddressLine1"":""G105 MG Tower"",""AddressLine2"":""Bregade Road"",""City"":""Kolkata"",""Country"":""India"",""Pin"":""7000001"",""State"":""West Bengal""}","[{""Skill"":""Hadoop"",""YearsOfExperience"":""3""},{""Skill"":""Apache Spark"",""YearsOfExperience"":""2""}]","{""email"":""magt23@abc.com"",""office"":""7896524689""}"
+105,Pritam,Jain,"{""AddressLine1"":""M206 Richmond Tower"",""AddressLine2"":""Electronic City"",""City"":""Bangalore"",""Country"":""India"",""Pin"":""560001"",""State"":""Karnataka""}","[{""Skill"":""Python"",""YearsOfExperience"":""10""},{""Skill"":""SQL"",""YearsOfExperience"":""15""},{""Skill"":""Apache Spark"",""YearsOfExperience"":""3""},{""Skill"":""Databases"",""YearsOfExperience"":""15""}]","{""phone"":""6984753281"",""whatsapp"":""6924587322""}"
+```
+
+We have multiple records, but records are mixed. We have simple fields, ID, first name, last name. Then we have JSON string for address, skills and contacts.
+
+Read the data:
 
 ```python
+# define dataset schema
 offline_students_schema = "id string, first_name string, last_name string, address string, skills string, contacts string"
 
+# create dataframe
 offline_students_raw_df = (
+    # spark - session, read.format("csv") - connector
     spark.read.format("csv")
+        # read first line as a header line
         .option("header", "true")
+        # ignore first double quote from the strings
         .option("quote", "\"")
+        # ignore the second double quote from the string
         .option("escape", "\"")
+        # use the defined schema
         .schema(offline_students_schema)
+        # set the path to the data file
         .load("/Volumes/dev/spark_db/datasets/spark_programming/data/students_offline.csv")
 )
 
+# display the dataframe
 offline_students_raw_df.display()
+# save/overwrite existing table "offline_students_raw" with the dataframe - option("overwriteSchema", "true")
 offline_students_raw_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("dev.spark_db.offline_students_raw")
 ```
 
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-1-1.png" width="400"/>
 <br>
 <br>
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-1-2.png" width="1000"/>
+<br>
+<br>
+
+<img src="pics/working with-variant-data-type-35-1-3.png" width="1000"/>
 <br>
 <br>
 
@@ -1491,13 +1519,20 @@ offline_students_raw_df.write.mode("overwrite").option("overwriteSchema", "true"
 
 ### 2. Requirement
 
-Prepare an offline_var_students table which is ready for analysis
+Prepare an offline_var_students table which is ready for analysis.
+
+Earlier we used from_json() which expect 2 arguments - 1st: which field we want to parse and 2nd: schema of the JSON string
+The approach where we push all the semi-structured data into a field called variant data type. And then we are we don't have to worry about the schema of the complex data type model.
 
 
 ```python
+# import libraries for parsing json to variant datatype
 from pyspark.sql.functions import parse_json
 
+# create new dataframe
 offline_students_df = (
+    # use the craeted dataframe from previous step and craete columns
+    # parse_json() - creates columns from complex data fields whitout schema
     offline_students_raw_df.withColumns({
         "address": parse_json("address"),
         "skills": parse_json("skills"),
@@ -1505,40 +1540,55 @@ offline_students_df = (
     })
 )
 
+# display the dataframe
 offline_students_df.display()
+# save the dataframe in new table "offline_var_students"
 offline_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.offline_var_students")
 ```
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-2-1.png" width="400"/>
 <br>
 <br>
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-2-2.png" width="1000"/>
 <br>
 <br>
+
+<img src="pics/working with-variant-data-type-35-2-3.png" width="1000"/>
+<br>
+<br>
+
+And from data engineering perspective, we prepared a table for our analytics team. And the queries on this data should be fast enough. As fast as when we use a struct or array or map or a complex data type, because those are also binary variant is also binary. Complex data types also do not need parsing at the time of query, and variant data type also do not need parsing at the time of query, so they perform fast.
+
+The advantage is we do not even need parsing with the schema at the time of creating the table. We simply create the table with the field name without telling the schema, and that gives us flexibility to load data without knowing the schema and support schema evolution or schema changes.
 
 
 
 
 ### 3. Requirement
+
+Let's learn how we can query the variant data types.
+
 Perform the following analysis
 
   1. What is country wise student count.
   2. Find all students with more than 1 year of Spark knowledge
   3. Find all students who didn't provide phone or whatsapp
 
+So we know kind of what kind of SQL queries can be written. But uh variant has some changes. Dealing with variant data type Requires a little more learning about the spark SQL.
+
 
 #### 3.1 What is country wise student count.
 
 ```sql
 -- Variant object element names are case sensitive
-
+-- From a variant we extract any object inside the variant that still remains variant, so we need to cast it as a string
 select cast(address:Country as string), count(*) as count
 from dev.spark_db.offline_var_students
 group by cast(address:Country as string)
 ```
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-3-1.png" width="400"/>
 <br>
 <br>
 
@@ -1548,18 +1598,25 @@ group by cast(address:Country as string)
 #### 3.2 Find all students with more than 1 year of Spark knowledge
 
 ```sql
+-- create table offline_students_skills
 with offline_students_skills(
+  -- set simple fields and cast skills as strings and YearsOfExperience as integer from variant data type
+  -- Variant field names and variant field object elements are all case sensitive
   select id, first_name, last_name, cast(value:Skill as string), cast(value:YearsOfExperience as int)
+  -- separate all skills from variant complex data type
+  -- lateral variant_explode_outer() show ID and name even if there si no skills or years of experience - shown as null
+  -- variant_explode() exclude the records with no skills or years of experience
   from dev.spark_db.offline_var_students, lateral variant_explode_outer(skills)
 )
+-- select all from offline_students_skills table
 select *
 from offline_students_skills
+-- filter skills that include "Spark" with more than one year of experience
+-- These fields are converted to are taken out and cast it to a string so they are no longer variant, so their names are not case sensitive
 where skill like "%Spark%" and yearsofexperience>1
-
 ```
 
-
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-3-2.png" width="800"/>
 <br>
 <br>
 
@@ -1568,14 +1625,18 @@ where skill like "%Spark%" and yearsofexperience>1
 #### 3.3 Find all students who didn't provide phone or whatsapp
 
 ```sql
+-- select simple fields and email from contacts
 select id, first_name, last_name, contacts:email
+-- specify the table
 from dev.spark_db.offline_var_students
+-- set filters - no phone and no whatapp info
 where contacts:phone is null and contacts:whatsapp is null
 ```
 
-<img src="pics/name.png" width="400"/>
+<img src="pics/working with-variant-data-type-35-3-3.png" width="600"/>
 <br>
 <br>
+
 
 
 [⬆ Back to content](#content)
