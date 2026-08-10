@@ -1446,14 +1446,115 @@ where Contacts['phone'] is null and Contacts['whatsapp'] is null
 
 ## 35. Working with Variant Type
 
-
 [⬆ Back to content](#content)
 
-### Subheader
+We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
 
+Login to Databricks, connect to serverless cluster and open CH06-Working with Data Types/08-Working with VARIANT data notebook
+
+
+Spark latest version has introduced a new data type called variant type. Variant is going to be the data type for handling complex data, JSON, etc. so in this lecture we want to learn what is variant type, how to use it, and when we should be using it.
+
+
+
+### 1. Requirement
+
+Read data from students_offline.csv file and load into offline_students_raw table.
 
 
 ```python
+offline_students_schema = "id string, first_name string, last_name string, address string, skills string, contacts string"
+
+offline_students_raw_df = (
+    spark.read.format("csv")
+        .option("header", "true")
+        .option("quote", "\"")
+        .option("escape", "\"")
+        .schema(offline_students_schema)
+        .load("/Volumes/dev/spark_db/datasets/spark_programming/data/students_offline.csv")
+)
+
+offline_students_raw_df.display()
+offline_students_raw_df.write.mode("overwrite").option("overwriteSchema", "true").saveAsTable("dev.spark_db.offline_students_raw")
+```
+
+
+<img src="pics/name.png" width="400"/>
+<br>
+<br>
+
+<img src="pics/name.png" width="400"/>
+<br>
+<br>
+
+
+
+### 2. Requirement
+
+Prepare an offline_var_students table which is ready for analysis
+
+
+```python
+from pyspark.sql.functions import parse_json
+
+offline_students_df = (
+    offline_students_raw_df.withColumns({
+        "address": parse_json("address"),
+        "skills": parse_json("skills"),
+        "contacts": parse_json("contacts")
+    })
+)
+
+offline_students_df.display()
+offline_students_df.write.mode("overwrite").saveAsTable("dev.spark_db.offline_var_students")
+```
+
+<img src="pics/name.png" width="400"/>
+<br>
+<br>
+
+<img src="pics/name.png" width="400"/>
+<br>
+<br>
+
+
+
+
+### 3. Requirement
+Perform the following analysis
+
+  1. What is country wise student count.
+  2. Find all students with more than 1 year of Spark knowledge
+  3. Find all students who didn't provide phone or whatsapp
+
+
+#### 3.1 What is country wise student count.
+
+```sql
+-- Variant object element names are case sensitive
+
+select cast(address:Country as string), count(*) as count
+from dev.spark_db.offline_var_students
+group by cast(address:Country as string)
+```
+
+<img src="pics/name.png" width="400"/>
+<br>
+<br>
+
+
+
+
+#### 3.2 Find all students with more than 1 year of Spark knowledge
+
+```sql
+with offline_students_skills(
+  select id, first_name, last_name, cast(value:Skill as string), cast(value:YearsOfExperience as int)
+  from dev.spark_db.offline_var_students, lateral variant_explode_outer(skills)
+)
+select *
+from offline_students_skills
+where skill like "%Spark%" and yearsofexperience>1
 
 ```
 
@@ -1464,48 +1565,17 @@ where Contacts['phone'] is null and Contacts['whatsapp'] is null
 
 
 
+#### 3.3 Find all students who didn't provide phone or whatsapp
 
-
-
-```python
-
+```sql
+select id, first_name, last_name, contacts:email
+from dev.spark_db.offline_var_students
+where contacts:phone is null and contacts:whatsapp is null
 ```
-
 
 <img src="pics/name.png" width="400"/>
 <br>
 <br>
-
-
-
-
-
-
-```python
-
-```
-
-
-<img src="pics/name.png" width="400"/>
-<br>
-<br>
-
-
-
-
-
-
-```python
-
-```
-
-
-<img src="pics/name.png" width="400"/>
-<br>
-<br>
-
-
-
 
 
 [⬆ Back to content](#content)
