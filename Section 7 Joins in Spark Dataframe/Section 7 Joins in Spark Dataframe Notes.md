@@ -169,52 +169,84 @@ where m.last_name = "Smith" and b.slots > 5
 order by m.first_name asc, b.slots desc
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/spark-joins-37-1-1-1.png" width="1000" />
 <br>
 <br>
 
 
+
+1.2 Try answering with dataframe api
+
+  - Join Expression
+  - Join type
+  - Column name ambiguity
 
 ```python
+from pyspark.sql.functions import expr, col
 
+members_df = spark.table("dev.spark_db.members").alias("m")
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+#join_expr = expr("m.menber_id == b.member_id")
+join_expr = col("m.member_id") == col("b.member_id")
+
+reports_df = (
+    members_df.join(bookings_df, join_expr, "inner")
+        .filter("m.last_name == 'Smith' and b.slots > 5")
+        .select("m.member_id", "m.first_name", "m.last_name", "b.facility_id", "b.slots", "b.start_time")
+        .orderBy("m.first_name", col("b.slots").desc())
+)
+
+reports_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/spark-joins-37-1-1-2.png" width="400" />
+<br>
+<br>
+
+<img src="pics/spark-joins-37-1-2-3.png" width="1000" />
 <br>
 <br>
 
 
+
+### Q2. Show me a facility bookings report as the following.
+
+member_id | first_name | last_name | facility_name | slots | booking_amount | start_time    
+--------------------------------------------------------------------------------------------
+
+The report must meet the following criteria.
+  1. Facility bookings made by a person whose last name is Smith
+  2. He has booked more than 5 slots in a single booking
+  3. Report should be sorted by first name of the member in ascending order and booking amount in descending order
 
 ```python
+from pyspark.sql.functions import col, expr
 
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
+members_df = spark.table("dev.spark_db.members").alias("m")
+facilities_df = spark.table("dev.spark_db.facilities").alias("f")
 
+report_df = (
+    bookings_df
+        .join(members_df, expr("b.member_id == m.member_id"), "inner")
+        .join(facilities_df, col("b.facility_id") == col("f.facility_id"), "inner")
+        .filter("m.last_name == 'Smith' and b.slots > 5")
+        .selectExpr("m.member_id", "m.first_name", "m.last_name", "f.facility_name", "b.slots",
+            "b.slots * f.member_cost as booking_amount", "b.start_time")
+        .orderBy(col("m.first_name").asc(),
+                 col("booking_amount").desc())
+)
+
+report_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/spark-joins-37-2-1.png" width="400" />
 <br>
 <br>
 
 
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
+<img src="pics/spark-joins-37-2-2.png" width="1000" />
 <br>
 <br>
 
