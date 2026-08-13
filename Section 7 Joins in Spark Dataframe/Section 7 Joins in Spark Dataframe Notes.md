@@ -147,25 +147,29 @@ We should have executed the first notebook from this section - 01-Assinment Data
 
 member_id | first_name | last_name | facility_id | slots | start_time
 ---------------------------------------------------------------------------
-The report must meet the following criteria.
-
-Facility bookings made by a person whose last name is Smith
-He has booked more than 5 slots in a single booking
-Report should be sorted by first name of the member in ascending order and number of slots in descending order
+The report must meet the following criteria.    
+- Facility bookings made by a person whose last name is Smith
+- He has booked more than 5 slots in a single booking
+- Report should be sorted by first name of the member in ascending order and number of slots in descending order
 
 
 
 #### 1.1 Try answering with SQL
 
-  - Join Expression
-  - Join type
-  - Column name ambiguity
+  - Join Expression - on m.member_id = b.member_id
+  - Join type - inner join
+  - Column name ambiguity - if columns exist in more than one table we need to spcify the table we want the values from
 
+These three things are also applicable when working with the data frame.
 
 ```sql
+-- select specific columns with name ambiguity and resulted join column: m.member_id
 select m.member_id, first_name, last_name, facility_id, slots, start_time
+-- set the join criteria and alias. Join expression is: on m.member_id = b.member_id, Join type: inner join
 from dev.spark_db.bookings as b inner join dev.spark_db.members as m on m.member_id = b.member_id
+-- specify the additional name condition
 where m.last_name = "Smith" and b.slots > 5
+-- set ascending and descending order for the result join
 order by m.first_name asc, b.slots desc
 ```
 
