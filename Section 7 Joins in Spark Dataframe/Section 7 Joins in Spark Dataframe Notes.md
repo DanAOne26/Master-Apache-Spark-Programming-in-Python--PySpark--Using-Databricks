@@ -179,28 +179,37 @@ order by m.first_name asc, b.slots desc
 
 
 
-1.2 Try answering with dataframe api
+#### 1.2 Try answering with dataframe api
 
   - Join Expression
   - Join type
   - Column name ambiguity
 
 ```python
+# import used libraries
 from pyspark.sql.functions import expr, col
 
+# set alias of dataframes
 members_df = spark.table("dev.spark_db.members").alias("m")
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+# define join expression
 #join_expr = expr("m.menber_id == b.member_id")
 join_expr = col("m.member_id") == col("b.member_id")
 
+# create new dataframe
 reports_df = (
+    # using transformation join() with specific table, expression and type of the join
     members_df.join(bookings_df, join_expr, "inner")
+        # set filter as in the requirements
         .filter("m.last_name == 'Smith' and b.slots > 5")
+        # select columns
         .select("m.member_id", "m.first_name", "m.last_name", "b.facility_id", "b.slots", "b.start_time")
+        # define order sequence as in the requirements
         .orderBy("m.first_name", col("b.slots").desc())
 )
 
+# display the dataframe
 reports_df.display()
 ```
 
@@ -225,23 +234,33 @@ The report must meet the following criteria.
   3. Report should be sorted by first name of the member in ascending order and booking amount in descending order
 
 ```python
+# import used libraries
 from pyspark.sql.functions import col, expr
 
+# define dataframes alias
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 members_df = spark.table("dev.spark_db.members").alias("m")
 facilities_df = spark.table("dev.spark_db.facilities").alias("f")
 
+# create new dataframe
 report_df = (
+    # use existing dataframe
     bookings_df
+        # define the join configs - used dataframe, join expression and join type
         .join(members_df, expr("b.member_id == m.member_id"), "inner")
+        # define second join config - used dataframe, expression, and join type
         .join(facilities_df, col("b.facility_id") == col("f.facility_id"), "inner")
+        # set filters
         .filter("m.last_name == 'Smith' and b.slots > 5")
+        # set calculation expression
         .selectExpr("m.member_id", "m.first_name", "m.last_name", "f.facility_name", "b.slots",
             "b.slots * f.member_cost as booking_amount", "b.start_time")
+        # set ordering
         .orderBy(col("m.first_name").asc(),
                  col("booking_amount").desc())
 )
 
+# display the result dataframe
 report_df.display()
 ```
 
