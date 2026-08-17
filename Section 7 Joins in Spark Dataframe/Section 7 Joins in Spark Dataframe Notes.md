@@ -284,63 +284,186 @@ report_df.display()
 
 We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
 
-Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/ notebook
+Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/03-Outer Joins notebook
+
+We should have executed the first notebook from this section - 01-Assinment Data Preparation so we have requierd tables for the lobas.
+
+
+### Q1. List all bookings made by a person named Darren Smith as the following. 
+
+```text
+member_id | first_name | last_name | address | facility_id | slots
+```
+
+Ensure the following
+  1. Show the details of all persons named Darren Smith even if they have not made any bookings
+  2. Sort the result by number of slots (highers first)
+  3. List the person with no bookings at the top
+
+
+```python
+from pyspark.sql.functions import expr, col
+
+members_df = spark.table("dev.spark_db.members").alias("m")
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
+
+result_df = (
+    members_df.join(bookings_df, expr("m.member_id=b.member_id"), "left")
+        .where("m.first_name == 'Darren' and m.last_name == 'Smith'")
+        .select("m.member_id", "m.first_name", "m.last_name", "m.address", "b.facility_id", "b.slots")
+        .orderBy(col("b.slots").desc_nulls_first())
+)
+
+result_df.display()
+```
+
+<img src="pics/outer-joins-38-1.png" width="400" />
+<br>
+<br>
+
+<img src="pics/outer-joins-38-1-2.png" width="800" />
+<br>
+<br>
+
+
+### Q2. Show me a bookings report for Darren Smith as the following.
+
+```text
+facility_name | slots | booking_amount | start_time | member_id | member_name | telephone | address
+```
+
+#### The report must meet the following criteria.
+  1. Show the details of all persons named Darren Smith even if they have not made any bookings
+  2. Sort the result by number of slots (highers first)
+  3. List the person with no bookings at the top
 
 
 
 ```python
+from pyspark.sql.functions import expr, col
 
+members_df = (
+    spark.table("dev.spark_db.members")
+        .where("first_name='Darren' and last_name='Smith'")
+)
 
+bookings_df = spark.table("dev.spark_db.bookings")
+facilities_df = spark.table("dev.spark_db.facilities")
+
+joined_df = (
+    members_df.alias("m")
+        .join(bookings_df.alias("b"), expr("m.member_id = b.member_id"), "left")
+        .join(facilities_df.alias("f"), expr("b.facility_id=f.facility_id"), "left")
+)
+
+results_df = (
+    joined_df.selectExpr(
+        "f.facility_name", "b.slots",
+        "b.slots * f.member_cost as booking_amount",
+        "b.start_time", "b.member_id",
+        "concat_ws(' ', m.first_name, m.last_name)  as member_name",
+        "m.telephone", "m.address"
+    ).orderBy(col("slots").desc_nulls_first())    
+)
+
+results_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/outer-joins-38-2-1.png" width="400" />
+<br>
+
+
+<img src="pics/outer-joins-38-2-2.png" width="400" />
 <br>
 <br>
+
+<img src="pics/outer-joins-38-2-3.png" width="1200" />
+<br>
+<br>
+
+
+### Q3. Prepare a facility booking report as the following 
+
+```text
+facility_name | member_cost | gest_cost | start_time | slots
+```
+
+#### Ensure the following
+  1. All club facilities must be listed in the report
+  2. Consider only bookings for more than 10 slots
 
 ```python
+from pyspark.sql.functions import expr
 
+facilities_df = spark.table("dev.spark_db.facilities")
+bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 10")
 
+result_df = (
+    bookings_df.join(facilities_df, bookings_df.facility_id == facilities_df.facility_id, "right")
+             .select(facilities_df.facility_name,
+                    facilities_df.member_cost,
+                    facilities_df.guest_cost,
+                    bookings_df.start_time,
+                    bookings_df.slots)
+)
+
+result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/outer-joins-38-3-1.png" width="1000" />
 <br>
 <br>
 
 
+### Q4. Prepare a member bookings report as the following
 
+```text
+booking_id | facility_name | slots | first_name | last_name | address
+```
+
+#### Ensure the following
+  1. Consider only regular memebrs (not guest) and direct members(not recomended by any other member)
+  2. Consider only bookings for more than 8 hours
+  3. Ensure all regular and direct members are listed even if they have no 8 hour bookings
+  4. Ensure all 8 hour bookings are listed even if they are not made by regular and direct members
+  5. Sort the report by slots and first name in ascending order
 
 ```python
+from pyspark.sql.functions import expr
 
+members_df = (
+    spark.table("dev.spark_db.members")
+        .filter("member_id != 0 and recommended_by is null")
+        .alias("m")
+)
 
+bookings_df = (
+    spark.table("dev.spark_db.bookings")
+        .filter("slots > 8")
+        .alias("b")
+)
+
+facilities_df = spark.table("dev.spark_db.facilities").alias("f")
+
+full_join_df = members_df.join(bookings_df, expr("m.member_id == b.member_id"), "full")
+
+result_df = (
+    full_join_df.join(facilities_df, expr("b.facility_id == f.facility_id"), "left")
+    .select("b.booking_id","f.facility_name","b.slots","m.first_name","m.last_name","m.address")
+    .orderBy(expr("b.slots").asc_nulls_last(), expr("m.first_name").asc_nulls_last())
+)
+
+display(result_df)
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/outer-joins-38-4-1.png" width="400" />
+<img src="pics/outer-joins-38-4-2.png" width="400" />
 <br>
 <br>
 
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
+<img src="pics/outer-joins-38-4-3.png" width="1200" />
 <br>
 <br>
-
-
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
 
 
 [⬆ Back to content](#content)
