@@ -140,7 +140,7 @@ We should have imported all required files in section 9. Setup Your Hands-On Env
 
 Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/02-Inner Joins notebook
 
-We should have executed the first notebook from this section - 01-Assinment Data Preparation so we have requierd tables for the lobas.
+We should have executed the first notebook from this section - 01-Assinment Data Preparation so we have requierd tables for the labs.
 
 
 ### Q1. Prepare a facility booking reporting dataset as the following.
@@ -286,7 +286,7 @@ We should have imported all required files in section 9. Setup Your Hands-On Env
 
 Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/03-Outer Joins notebook
 
-We should have executed the first notebook from this section - 01-Assinment Data Preparation so we have requierd tables for the lobas.
+We should have executed the first notebook from this section - 01-Assinment Data Preparation so we have requierd tables for the labs.
 
 
 ### Q1. List all bookings made by a person named Darren Smith as the following. 
@@ -297,23 +297,36 @@ member_id | first_name | last_name | address | facility_id | slots
 
 Ensure the following
   1. Show the details of all persons named Darren Smith even if they have not made any bookings
+  - If we keep member on the left side of the join, we can use left join. If we keep member on the right side of the join, we can use right outer join. So we will be using outer join for sure either left or right.
   2. Sort the result by number of slots (highers first)
   3. List the person with no bookings at the top
+  - We can put up sorting details once we have the data set.
 
 
 ```python
+# import linbraries
 from pyspark.sql.functions import expr, col
 
+# create dataframes and set alias
 members_df = spark.table("dev.spark_db.members").alias("m")
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+# create result dataframe
 result_df = (
+    # use join() with used dataframe, expression and join type
+    # We need all records from members_df even if a corresponding or a matching record doesn't exist in the bookings table.
     members_df.join(bookings_df, expr("m.member_id=b.member_id"), "left")
+        # filter conditions
         .where("m.first_name == 'Darren' and m.last_name == 'Smith'")
+        # select columns
         .select("m.member_id", "m.first_name", "m.last_name", "m.address", "b.facility_id", "b.slots")
+        # set sorting
+        # Usually we specify order by using col() because that gives us leverage to sort by ascending or descending.
+        # desc_nulls_first() - null values first, desc_nulls_last() - null values last
         .orderBy(col("b.slots").desc_nulls_first())
 )
 
+# display result dataframe
 result_df.display()
 ```
 
@@ -340,32 +353,46 @@ facility_name | slots | booking_amount | start_time | member_id | member_name | 
 
 
 ```python
+# import libraries
 from pyspark.sql.functions import expr, col
 
+# create dataframe from table
 members_df = (
+    # spark - session, table() - use table to create df
     spark.table("dev.spark_db.members")
+        # filter the records by the required name
         .where("first_name='Darren' and last_name='Smith'")
 )
 
+# create dataframes from existing tables
 bookings_df = spark.table("dev.spark_db.bookings")
 facilities_df = spark.table("dev.spark_db.facilities")
 
+# We will spearate the jobs: 1 make joins, 2 select columns and set ordering
+# create joined dataframe
 joined_df = (
+    # set alias forsorted members_df dataframe
     members_df.alias("m")
+        # use join() with used dataframe, condition with expression and set alias at this stage, expression and join type - left
         .join(bookings_df.alias("b"), expr("m.member_id = b.member_id"), "left")
+        # we use another left join to save all members if facility_id is not present in the facility dataframe
         .join(facilities_df.alias("f"), expr("b.facility_id=f.facility_id"), "left")
 )
 
+# create result dataframe
 results_df = (
+    # use the joined dataframe, select the columns we need and set the ordering
     joined_df.selectExpr(
         "f.facility_name", "b.slots",
         "b.slots * f.member_cost as booking_amount",
         "b.start_time", "b.member_id",
         "concat_ws(' ', m.first_name, m.last_name)  as member_name",
         "m.telephone", "m.address"
+    # desc_nulls_first() - null values first, desc_nulls_last() - null values last
     ).orderBy(col("slots").desc_nulls_first())    
 )
 
+# display the result dataframe
 results_df.display()
 ```
 
