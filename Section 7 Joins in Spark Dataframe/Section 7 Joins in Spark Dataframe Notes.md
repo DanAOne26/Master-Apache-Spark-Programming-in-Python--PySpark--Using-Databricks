@@ -350,7 +350,9 @@ facility_name | slots | booking_amount | start_time | member_id | member_name | 
   2. Sort the result by number of slots (highers first)
   3. List the person with no bookings at the top
 
+In this example we separate different steps into separate actions. Logically, this gives a clear understanding or good readability for our code.
 
+We manualy filter first and make joins with fewer records. Spark do this logic corrections automatically when many operations are executed at once so we don't need to worry about this.
 
 ```python
 # import libraries
@@ -373,7 +375,7 @@ facilities_df = spark.table("dev.spark_db.facilities")
 joined_df = (
     # set alias forsorted members_df dataframe
     members_df.alias("m")
-        # use join() with used dataframe, condition with expression and set alias at this stage, expression and join type - left
+        # use join() with used dataframe, condition with expression and set alias at this stage and join type - left
         .join(bookings_df.alias("b"), expr("m.member_id = b.member_id"), "left")
         # we use another left join to save all members if facility_id is not present in the facility dataframe
         .join(facilities_df.alias("f"), expr("b.facility_id=f.facility_id"), "left")
@@ -420,13 +422,21 @@ facility_name | member_cost | gest_cost | start_time | slots
   2. Consider only bookings for more than 10 slots
 
 ```python
+# import libraries
 from pyspark.sql.functions import expr
 
+# craete dataframe from tables
 facilities_df = spark.table("dev.spark_db.facilities")
 bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 10")
 
+# 
 result_df = (
+    # use join() with used dataframe, condition with expression and set alias at this stage and join type - right
+    # we don't use alias in this case
+    # we wanted to implement right join by right join because facilities is on the right side of the join. And we want all facilities even if there is no booking made. So we want all records from the right side table.
     bookings_df.join(facilities_df, bookings_df.facility_id == facilities_df.facility_id, "right")
+             # define columns for the result dataframe
+             # this approach of defining the column name is case sensitive in terms of column names
              .select(facilities_df.facility_name,
                     facilities_df.member_cost,
                     facilities_df.guest_cost,
@@ -434,6 +444,7 @@ result_df = (
                     bookings_df.slots)
 )
 
+# display result dataframe
 result_df.display()
 ```
 
@@ -456,30 +467,47 @@ booking_id | facility_name | slots | first_name | last_name | address
   5. Sort the report by slots and first name in ascending order
 
 ```python
+# import librarity
 from pyspark.sql.functions import expr
 
+# create members dataframe
 members_df = (
+    # spark - session, table() - use data from table
     spark.table("dev.spark_db.members")
+        # filter required records
         .filter("member_id != 0 and recommended_by is null")
+        # set alias
         .alias("m")
 )
 
+# craete bookins dataframe
 bookings_df = (
+    # spark - session, table() - use data from table
     spark.table("dev.spark_db.bookings")
+        # filter required records
         .filter("slots > 8")
+        # set alias
         .alias("b")
 )
 
+# create facilities df from table and set alias
 facilities_df = spark.table("dev.spark_db.facilities").alias("f")
 
+# create result df for members and bookings by id - full join
 full_join_df = members_df.join(bookings_df, expr("m.member_id == b.member_id"), "full")
 
+# create final dataframe
 result_df = (
+    # use join() with used dataframe, condition with expression and join type - left
+    # join bookins df with fasilities df by facility id with left join
     full_join_df.join(facilities_df, expr("b.facility_id == f.facility_id"), "left")
+    # define the columns for result dataframe
     .select("b.booking_id","f.facility_name","b.slots","m.first_name","m.last_name","m.address")
+    # order the records as required
     .orderBy(expr("b.slots").asc_nulls_last(), expr("m.first_name").asc_nulls_last())
 )
 
+# display the result df
 display(result_df)
 ```
 
@@ -491,6 +519,9 @@ display(result_df)
 <img src="pics/outer-joins-38-4-3.png" width="1200" />
 <br>
 <br>
+
+
+In this lecture we learn how to implement outer join and we have seen examples for left, outer right outer and full outer join. Along the way we learn few other things like how do we implement the sorting where we want to keep nulls at the top or nulls at the bottom. We also learn one additional way or one new way of, uh, referring the columns from a data frame or giving a fully qualified data frame column names in the expressions. And we also learn how we can break up our data frame transformation into smaller, easy to understand pieces and do it step by step.
 
 
 [⬆ Back to content](#content)
