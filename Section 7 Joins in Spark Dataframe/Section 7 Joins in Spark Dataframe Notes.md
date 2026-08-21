@@ -535,66 +535,81 @@ In this lecture we learn how to implement outer join and we have seen examples f
 
 We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
 
-Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/ notebook
+Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-Lateral Join notebook
 
 
+### Lateral Join              
 
-```python
+The lateral joint allows us to query right data frame for each row of the left data frame. It helps us to solve problems which require kind of for loop for each record in the left data frame. So we take one record from the left data frame and query the right data frame with somewhere clause order by group by whatever we want.
 
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
-```python
+Lateral join allow querying right dataframe for each row of the left dataframe.     
+Lateral joins are especially useful when:      
+  1. You need per-parent Top-N child rows        
+  2. You want to invoke TVFs with arguments derived from each row        
 
 
-```
+#### 1. Find the most recent booking for each member       
 
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
+|member_id|first_name|last_name|facility_name|start_time|slots|      
+ 
 
 ```python
+from pyspark.sql.functions import col, expr
 
+members_df = (
+    spark.table("dev.spark_db.members")
+        .filter("member_id > 0")
+        .select("member_id", "first_name", "last_name")
+        .alias("m")
+)
 
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
+facilities_df = spark.table("dev.spark_db.facilities").alias("f")
+
+latest_member_bookings_df = (
+    members_df.lateralJoin(
+        bookings_df.where("b.member_id == m.member_id")
+            .orderBy(col("start_time").desc())
+            .limit(1), None, "left")
+        .select("m.member_id", "m.first_name", "m.last_name", "b.facility_id", "b.start_time", "b.slots")
+).alias("mb")
+
+result_df = (
+    latest_member_bookings_df.join(facilities_df, on=expr("mb.facility_id == f.facility_id"), how="left")
+    .select("mb.member_id", "mb.first_name", "mb.last_name", "f.facility_name", "mb.start_time", "mb.slots")
+)
+
+result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/lateral-join-39-1-2.png" width="400" />
+<img src="pics/lateral-join-39-1-3.png" width="400" />
+<br>
+<br>
+
+<img src="pics/lateral-join-39-1-1.png" width="1000" />
 <br>
 <br>
 
 
-
+#### 2. Find all students with more than 1 year of Spark knowledge from offline_var_students
+   
 ```python
+students_df = spark.table("dev.spark_db.offline_var_students").alias("s")
 
+result_df = (
+    students_df.lateralJoin(spark.tvf.variant_explode("s.skills")
+                            .selectExpr("cast(value:Skill as string) as skill", "cast(value:YearsOfExperience as int) as experience"))
+                .where("skill like '%Spark%' and experience > 1")
+                .select("id", "first_name", "last_name", "skill", "experience")
+)
 
+result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/lateral-join-39-2-1.png" width="650" />
 <br>
 <br>
-
-
-
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
-
 
 
 [⬆ Back to content](#content)
