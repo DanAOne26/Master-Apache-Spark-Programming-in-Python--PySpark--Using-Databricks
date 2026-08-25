@@ -542,39 +542,60 @@ Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-
 
 The lateral joint allows us to query right data frame for each row of the left data frame. It helps us to solve problems which require kind of for loop for each record in the left data frame. So we take one record from the left data frame and query the right data frame with somewhere clause order by group by whatever we want.
 
+There are two very commonly used scenarios where lateral joins are very helpful.
 Lateral join allow querying right dataframe for each row of the left dataframe.     
 Lateral joins are especially useful when:      
   1. You need per-parent Top-N child rows        
+    - The first one is you need per parent top and child rows. Let's assume it is your left data frame. For each record you want to find top one, top two or top N records from the right data frame. If that is the case, you can use lateral joins.        
   2. You want to invoke TVFs with arguments derived from each row        
+    - Second scenario is when you want to invoke table valued functions with function arguments coming from the left data frame. If that is the case, then also we can use lateral joins.
 
 
 #### 1. Find the most recent booking for each member       
 
-|member_id|first_name|last_name|facility_name|start_time|slots|      
- 
+|member_id|first_name|last_name|facility_name|start_time|slots|     
+
+- How can we get the most recent booking? Logic is super simple for that member. Find all the bookings right and then sort it by start time in descending order and take the top most record. And that gives us the most recent booking. But how do we do it using a join? For each member we have to query the bookings table, find all its bookings, then sort it in descending order and limit the first record. So that's a kind of sub query for each member. And that's where lateral joins are very helpful.
+
 
 ```python
+# import used functions
 from pyspark.sql.functions import col, expr
 
+# create new df for members using existing table
 members_df = (
+    # spark - session, table() - table connector
     spark.table("dev.spark_db.members")
+        # filter the first zero member
         .filter("member_id > 0")
+        # take the columns we need
         .select("member_id", "first_name", "last_name")
+        # set alias
         .alias("m")
 )
 
+# create df for bookings and facilities with alias for each
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 facilities_df = spark.table("dev.spark_db.facilities").alias("f")
 
+# create df for latest booking by members
 latest_member_bookings_df = (
+    # join the already created members df with booking df to filter records with lateral join
     members_df.lateralJoin(
+        # filter booking records bt member id
         bookings_df.where("b.member_id == m.member_id")
+            # set descending order
             .orderBy(col("start_time").desc())
+            # limit the first record
             .limit(1), None, "left")
+        # define columns for the latest member's booking
         .select("m.member_id", "m.first_name", "m.last_name", "b.facility_id", "b.start_time", "b.slots")
+# set alias
 ).alias("mb")
 
+# create final df
 result_df = (
+    # 
     latest_member_bookings_df.join(facilities_df, on=expr("mb.facility_id == f.facility_id"), how="left")
     .select("mb.member_id", "mb.first_name", "mb.last_name", "f.facility_name", "mb.start_time", "mb.slots")
 )
