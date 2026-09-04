@@ -595,11 +595,13 @@ latest_member_bookings_df = (
 
 # create final df
 result_df = (
-    # 
+    # make a join to find facility names. make left join to see all (null included) records
     latest_member_bookings_df.join(facilities_df, on=expr("mb.facility_id == f.facility_id"), how="left")
+    # take all columns we need for the new dataframe 
     .select("mb.member_id", "mb.first_name", "mb.last_name", "f.facility_name", "mb.start_time", "mb.slots")
 )
 
+# display the result dataframe
 result_df.display()
 ```
 
@@ -616,8 +618,13 @@ result_df.display()
 #### 2. Find all students with more than 1 year of Spark knowledge from offline_var_students
    
 ```python
+# create a dataframe from table and set alias
 students_df = spark.table("dev.spark_db.offline_var_students").alias("s")
 
+# # display the dataframe to see the data types
+# students_df.display()
+
+# create result dataframe
 result_df = (
     students_df.lateralJoin(spark.tvf.variant_explode("s.skills")
                             .selectExpr("cast(value:Skill as string) as skill", "cast(value:YearsOfExperience as int) as experience"))
