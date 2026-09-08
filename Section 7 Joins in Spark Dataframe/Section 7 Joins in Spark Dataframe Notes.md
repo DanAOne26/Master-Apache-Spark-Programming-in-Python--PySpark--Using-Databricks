@@ -626,12 +626,21 @@ students_df = spark.table("dev.spark_db.offline_var_students").alias("s")
 
 # create result dataframe
 result_df = (
+    # explode students_df and apply filter for years of experience and 'Spark' like skills
+    # because skills are variant data type we will use variant_explode() - table value function
+    # in spark we have a limitation that we cannot use table valued functions in the Select clause
+    # We must use them in the From clause. From clause means use it as a table or use it in the join. From clause we use one table to query or we use two tables to join them. And that's where lateral join comes into play.
+    # spark.tvf.variant_explode() - call variant_explode function from spark session
     students_df.lateralJoin(spark.tvf.variant_explode("s.skills")
+                            # select only needed columns for years of experience and skills
                             .selectExpr("cast(value:Skill as string) as skill", "cast(value:YearsOfExperience as int) as experience"))
+                # set filter for years and skill required
                 .where("skill like '%Spark%' and experience > 1")
+                # set columns in the result df
                 .select("id", "first_name", "last_name", "skill", "experience")
 )
 
+# display the result df
 result_df.display()
 ```
 
@@ -651,7 +660,8 @@ result_df.display()
 
 We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
 
-Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/ notebook
+Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-Other Join Types notebook
+
 
 
 
