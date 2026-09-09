@@ -663,13 +663,36 @@ We should have imported all required files in section 9. Setup Your Hands-On Env
 Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-Other Join Types notebook
 
 
+Other Types of joins        
+- Natural Join - Automatically create join criteria on the same column names (Applies to Inner and Outer Joins)       
+- Cross Join - Join without any join criteria (all possible combinations)     
+- Self Join - Join a table with itself (Applies to Inner, Outer, and Cross Joins)     
+- Semi Join - Take records from the left side when it matches with the right side (Correlated EXISTS)     
+- Anti Join - Take records from the left side when it does not match with the right side (Correlated NOT EXISTS)     
 
+#### Q1. Show me a facility bookings report as the following. (Prefer Natural Join) ``` member_id | first_name | last_name | facility_name | slots | booking_amount | start_time
 
-
+The report must meet the following criteria.
+1. Facility bookings made by a person whose last name is Smith
+2. He has booked more than 5 slots in a single booking
+3. Report should be sorted by first name of the member in ascending order and booking amount in descending order
 
 ```python
+from pyspark.sql.functions import col
 
+bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 5")
+members_df = spark.table("dev.spark_db.members").filter("last_name == 'Smith'")
+facilities_df = spark.table("dev.spark_db.facilities")
 
+bmf_df = bookings_df.join(members_df, ["member_id"], "inner").join(facilities_df, "facility_id")
+
+report_df = (
+    bmf_df.selectExpr("member_id", "first_name", "last_name", "facility_name", "slots",
+                "slots * member_cost as booking_amount", "start_time")
+        .orderBy("first_name", col("booking_amount").desc())
+)
+
+display(report_df)
 ```
 
 <img src="pics/name.png" width="800" />
@@ -678,10 +701,99 @@ Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-
 
 
 
+#### Q2. Prepare a member bookings report as the following (Prefer Natural Join)
+
+booking_id | facility_name | slots | first_name | last_name | address
+
+Ensure the following
+
+1. Consider only regular memebrs (not guest) and direct members(not recomended by any other member)
+2. Consider only bookings for more than 8 hours
+3. Ensure all regular and direct members are listed even if they have no 8 hour bookings
+4. Ensure all 8 hour bookings are listed even if they are not made by regular and direct members
+5. Sort the report by slots and first name in ascending order
+
 
 ```python
+members_df = spark.table("dev.spark_db.members").filter("member_id != 0  and recommended_by is null")
+bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 8")
+facilities_df = spark.table("dev.spark_db.facilities")
+
+joined_df = (
+    members_df.join(bookings_df, "member_id", "full")
+            .join(facilities_df, "facility_id", "left")
+)
+
+report_df = (
+    joined_df.select("booking_id", "facility_name", "slots", "first_name", "last_name", "address")
+        .orderBy("slots", "first_name")
+)
+
+display(report_df)
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
 
 
+#### Q3. How many bookings are possible when each member is booking a facility exactly once in a month?            
+Show all possible combinations
+
+
+```python
+members_df = spark.table("dev.spark_db.members").filter("member_id > 0")
+facilities_df = spark.table("dev.spark_db.facilities")
+
+report_df = (
+    members_df.crossJoin(facilities_df)
+        .select("first_name", "last_name", "facility_name")
+)
+
+report_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+#### Q4. Prepare a report for members and who recomended them as the following ``` member_id | Member Name | Recommended By
+
+```python
+from pyspark.sql.functions import expr, concat_ws
+
+members_df = spark.table("dev.spark_db.members")
+
+report_df = (
+    members_df.alias("m")
+        .join(members_df.alias("r"), expr("m.recommended_by==r.member_id"), "inner")
+        .select("m.member_id",
+                concat_ws(" ", "m.first_name", "m.last_name").alias("Member Name"),
+                concat_ws(" ", "r.first_name", "r.last_name").alias("Recommended By"))
+)
+
+report_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+#### Q5. Prepare a list of members who made at least one booking. (Use SEMI Join) ``` member_id | first_name | last_name | address
+
+
+```python
+members_df = spark.table("dev.spark_db.members").filter("member_id > 0").alias("m")
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
+
+report_df = (
+    members_df.join(bookings_df, expr("m.member_id == b.member_id"), "left_semi")
+        .select("member_id", "first_name", "last_name", "address")
+)
+
+report_df.display()
 ```
 
 <img src="pics/name.png" width="800" />
@@ -690,40 +802,23 @@ Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-
 
 
 
+#### Q6. Prepare a list of members who never made any bookings. (Use ANTI Join) ``` member_id | first_name | last_name | address
+
 ```python
+members_df = spark.table("dev.spark_db.members").filter("member_id > 0").alias("m")
+bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+report_df = (
+    members_df.join(bookings_df, expr("m.member_id == b.member_id"), "left_anti")
+        .select("member_id", "first_name", "last_name", "address")
+)
 
+report_df.display()
 ```
 
 <img src="pics/name.png" width="800" />
 <br>
 <br>
-
-
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
-
 
 
 [⬆ Back to content](#content)
