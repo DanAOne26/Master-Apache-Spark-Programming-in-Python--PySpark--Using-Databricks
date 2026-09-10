@@ -695,9 +695,16 @@ report_df = (
 display(report_df)
 ```
 
-<img src="pics/name.png" width="800" />
+
+<img src="pics/other-joins-40-q1-1.png" width="300" />
+<img src="pics/other-joins-40-q1-2.png" width="300" />
 <br>
 <br>
+
+<img src="pics/other-joins-40-q1-3.png" width="1000" />
+<br>
+<br>
+
 
 
 
@@ -732,7 +739,12 @@ report_df = (
 display(report_df)
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/other-joins-40-q2-1.png" width="300" />
+<img src="pics/other-joins-40-q2-2.png" width="300" />
+<br>
+<br>
+
+<img src="pics/other-joins-40-q2-3.png" width="800" />
 <br>
 <br>
 
@@ -753,9 +765,14 @@ report_df = (
 report_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/other-joins-40-q3-1.png" width="400" />
 <br>
 <br>
+
+<img src="pics/other-joins-40-q3-2.png" width="500" />
+<br>
+<br>
+
 
 
 #### Q4. Prepare a report for members and who recomended them as the following ``` member_id | Member Name | Recommended By
@@ -776,9 +793,15 @@ report_df = (
 report_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/other-joins-40-q4-1.png" width="400" />
 <br>
 <br>
+
+<img src="pics/other-joins-40-q4-2.png" width="500" />
+<br>
+<br>
+
+
 
 
 #### Q5. Prepare a list of members who made at least one booking. (Use SEMI Join) ``` member_id | first_name | last_name | address
@@ -796,7 +819,11 @@ report_df = (
 report_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/other-joins-40-q5-1.png" width="400" />
+<br>
+<br>
+
+<img src="pics/other-joins-40-q5-2.png" width="700" />
 <br>
 <br>
 
@@ -816,7 +843,11 @@ report_df = (
 report_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/other-joins-40-q6-1.png" width="400" />
+<br>
+<br>
+
+<img src="pics/other-joins-40-q6-2.png" width="700" />
 <br>
 <br>
 
