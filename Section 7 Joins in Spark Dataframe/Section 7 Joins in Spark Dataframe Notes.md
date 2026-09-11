@@ -8,18 +8,6 @@
 40. [Other Types of Joins](#40-other-types-of-joins)
 
 
-filename.py
-
-```python
-
-
-```
-
-<img src="pics/name.png" width="800" />
-<br>
-<br>
-
-
 
 ## 36. Introduction to Joins in Spark
 
@@ -665,8 +653,8 @@ Login to Databricks, connect to serverless cluster and open CH07-Spark Joins/04-
 
 Other Types of joins        
 - Natural Join - Automatically create join criteria on the same column names (Applies to Inner and Outer Joins)       
-- Cross Join - Join without any join criteria (all possible combinations)     
-- Self Join - Join a table with itself (Applies to Inner, Outer, and Cross Joins)     
+- Cross Join - Join without any join criteria (all possible combinations) - If you have 1 million on the left side and 1 million on the right side, you will have a result which will have 1 million multiplied by 1 million records. And it might crash your server. Your server might not have enough memory to hold that many records. So be very careful when using cross product or cross join.     
+- Self Join - Join a table with itself (Applies to Inner, Outer, and Cross Joins)    
 - Semi Join - Take records from the left side when it matches with the right side (Correlated EXISTS)     
 - Anti Join - Take records from the left side when it does not match with the right side (Correlated NOT EXISTS)     
 
@@ -677,15 +665,25 @@ The report must meet the following criteria.
 2. He has booked more than 5 slots in a single booking
 3. Report should be sorted by first name of the member in ascending order and booking amount in descending order
 
+Natural Join example 1:
+
 ```python
+# import col function
 from pyspark.sql.functions import col
 
+# craete dataframe with filtered slots coount for bookings
 bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 5")
+# create dataframe with filtered members by the name Smith
 members_df = spark.table("dev.spark_db.members").filter("last_name == 'Smith'")
+# create dataframe from facilities table
 facilities_df = spark.table("dev.spark_db.facilities")
 
+# create dataframe by joining the tree dataframes - bookings, members and facilities
+# If we have multiple join keys we can pass a list of the keys - ["member_id", ...]
+# for the last join with facilities df the default join is 'inner' so we don't specify it
 bmf_df = bookings_df.join(members_df, ["member_id"], "inner").join(facilities_df, "facility_id")
 
+# 
 report_df = (
     bmf_df.selectExpr("member_id", "first_name", "last_name", "facility_name", "slots",
                 "slots * member_cost as booking_amount", "start_time")
@@ -720,22 +718,29 @@ Ensure the following
 4. Ensure all 8 hour bookings are listed even if they are not made by regular and direct members
 5. Sort the report by slots and first name in ascending order
 
+Natural Join example 2:
 
 ```python
+# create members df with the required filtered records
 members_df = spark.table("dev.spark_db.members").filter("member_id != 0  and recommended_by is null")
+# create bookings df with the required slot count
 bookings_df = spark.table("dev.spark_db.bookings").filter("slots > 8")
+# create facilities df from table
 facilities_df = spark.table("dev.spark_db.facilities")
 
+# create join df members, bookings and facilities
 joined_df = (
     members_df.join(bookings_df, "member_id", "full")
             .join(facilities_df, "facility_id", "left")
 )
 
+# create result df with specific columns
 report_df = (
     joined_df.select("booking_id", "facility_name", "slots", "first_name", "last_name", "address")
         .orderBy("slots", "first_name")
 )
 
+# display the result df
 display(report_df)
 ```
 
@@ -750,18 +755,25 @@ display(report_df)
 
 
 #### Q3. How many bookings are possible when each member is booking a facility exactly once in a month?            
-Show all possible combinations
+Show all possible combinations - Cross Join
 
+Cross Join:
 
 ```python
+# create members df from table and filter the ids
 members_df = spark.table("dev.spark_db.members").filter("member_id > 0")
+# create facilities df from table
 facilities_df = spark.table("dev.spark_db.facilities")
 
+# create result df with cross join (all posibilities - cross join)
+# combine each record from the left side table with each record of the right side table
+# We don't need any join criteria. If we provide the criteria, then we are not combining each record with the each record.
 report_df = (
     members_df.crossJoin(facilities_df)
         .select("first_name", "last_name", "facility_name")
 )
 
+# display the result df
 report_df.display()
 ```
 
@@ -777,19 +789,33 @@ report_df.display()
 
 #### Q4. Prepare a report for members and who recomended them as the following ``` member_id | Member Name | Recommended By
 
+Self Join - all needed information we need is contained is the table/df itself
+
 ```python
+# import expression and concatination functions
 from pyspark.sql.functions import expr, concat_ws
 
+# craete members df from table
 members_df = spark.table("dev.spark_db.members")
 
+# # display the members df so we can understand the requirements
+# # in the df there is a column 'recommended_by' with id so we need to filter by this coulmn
+# members_df.display()
+
+# create result df
 report_df = (
+    # set first alias
     members_df.alias("m")
+        # create a second alias for the same df and join it with itself with inner join
         .join(members_df.alias("r"), expr("m.recommended_by==r.member_id"), "inner")
+        # set collumns as required
         .select("m.member_id",
+                # create columns as concatinating the names of the members and reommenders
                 concat_ws(" ", "m.first_name", "m.last_name").alias("Member Name"),
                 concat_ws(" ", "r.first_name", "r.last_name").alias("Recommended By"))
 )
 
+# display the result df
 report_df.display()
 ```
 
@@ -806,16 +832,24 @@ report_df.display()
 
 #### Q5. Prepare a list of members who made at least one booking. (Use SEMI Join) ``` member_id | first_name | last_name | address
 
+SEMI Join - If at least one booking exists, then we take the member information. 
 
 ```python
+# create members df from table, filter the guests and set alias
 members_df = spark.table("dev.spark_db.members").filter("member_id > 0").alias("m")
+# create bookings df from table and set alias
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+# craeet result df
 report_df = (
+    # we are using left_semi join to filter just first matching record of the conditions we set
+    # in this case we need at least one booking made by a member
     members_df.join(bookings_df, expr("m.member_id == b.member_id"), "left_semi")
+        # set result df columns
         .select("member_id", "first_name", "last_name", "address")
 )
 
+# display result df
 report_df.display()
 ```
 
@@ -831,15 +865,23 @@ report_df.display()
 
 #### Q6. Prepare a list of members who never made any bookings. (Use ANTI Join) ``` member_id | first_name | last_name | address
 
+ANTI Join - What is anti join or left anti join. Exactly opposite to the left semi join. We are searching for members that never made a booking
+
 ```python
+# create members df from table, filter the guests and set alias
 members_df = spark.table("dev.spark_db.members").filter("member_id > 0").alias("m")
+# create bookings df from table and set alias
 bookings_df = spark.table("dev.spark_db.bookings").alias("b")
 
+# create result df
 report_df = (
+    # use left_anti join to filter all members that never made a booking
     members_df.join(bookings_df, expr("m.member_id == b.member_id"), "left_anti")
+        # set required columns
         .select("member_id", "first_name", "last_name", "address")
 )
 
+# display teh result df
 report_df.display()
 ```
 
