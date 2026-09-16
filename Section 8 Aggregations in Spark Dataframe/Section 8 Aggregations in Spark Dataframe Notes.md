@@ -229,6 +229,7 @@ result_df = (
     club_bookings_df.where("member_name != 'Guest Member'")
             # group members by name
             .groupBy("member_name")
+            # after groupBy() function we cannot use selectExpr() function. We must use agg() function
             # use agg() function to do aggregation for total member's bookings
             .agg(expr("sum(booking_amount) as total_booking_amount"))
 )
@@ -287,6 +288,7 @@ result_df = (
             .groupBy("member_name")
             # do sum aggregation and set result column name
             .agg(expr("sum(booking_amount) as total_booking_amount"))
+            # we must apply filter on the aggregated data
             # filter records above 2500
             .where("total_booking_amount > 2500")
 )
@@ -318,10 +320,11 @@ from pyspark.sql.functions import expr, col
 result_df = (
     # filter out guest members
     club_bookings_df.where("member_name != 'Guest Member'")
-            # group members and facilities
+            # group data by members bookings for specific facilities
             .groupBy("member_name", "facility_name")
-            # use agg() function to calcualte sum of total member's bookings
+            # use agg() function to calcualte sum of total member's bookings and specific facility
             .agg(expr("sum(booking_amount) as total_booking_amount"))
+            # we must apply filter on the aggregated data
             # filter results above 2500
             .where("total_booking_amount > 2500")
 )
