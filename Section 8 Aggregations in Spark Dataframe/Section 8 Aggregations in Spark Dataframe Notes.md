@@ -345,7 +345,180 @@ result_df.display()
 
 [⬆ Back to content](#content)
 
-### Subheader
+We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
+
+Login to Databricks, connect to serverless cluster and open CH08-Spark Aggregates/03-Multilevel Aggregation notebook
+
+## Multilevel Aggregates        
+
+Multilevel aggregates allow summarizing data at several hierarchical levels.       
+We have three variations of multilevel aggregates in Spark.
+
+1. Rollup
+2. Cube
+3. Grouping Sets
+
+
+
+### Requirement - Analysis Data Set     
+Prepare club bookings dataset for analysis      
+|booking_id|member_name|facility_name|start_time|booking_amount|
+
+```python
+bookings_df = spark.table("dev.spark_db.bookings")
+facilities_df = spark.table("dev.spark_db.facilities")
+members_df = spark.table("dev.spark_db.members")
+
+club_bookings_df = (
+    bookings_df.join(facilities_df, "facility_id")
+            .join(members_df, "member_id", "left")
+            .selectExpr("member_id", "booking_id",
+                        "case when member_id==0 then 'Guest Member' else concat_ws(' ', first_name, last_name) end as member_name",
+                        "facility_name","start_time",
+                        "case when member_id == 0 then slots * guest_cost else slots * member_cost end as booking_amount")
+)
+
+club_bookings_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+
+### Q1. Prepare a monthly revenue report for year 2022.
+
+Also roll up the total for the month column.
+
+ 
+|mnth|revenue|     
+   
+|7|23202.5|     
+|8|46066.5|     
+|9|63315.5|     
+| |132584.5|     
+   
+
+
+```python
+from pyspark.sql.functions import month, sum, col
+
+result_df = (
+    club_bookings_df.where("year(start_time) == 2022")
+        .withColumn("mnth", month("start_time"))
+        .rollup("mnth")
+        .agg(sum("booking_amount").alias("revenue"))
+        .orderBy(col("mnth").asc_nulls_last())
+)
+
+result_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+
+
+### Q2. Prepare a revenue report by revenue_from (Guest/Member) and facility_name for year 2022.
+
+Also roll up the total for each group.
+
+
+|revenue_from|facility_name|revenue|
+
+|Guest|Badminton Court| 1906.5|     
+|Guest| Massage Room 1|41600.0|     
+|Guest|...............|.......|     
+|Guest|...............|.......|     
+|Guest|...........NULL|89096.5|     
+|Member|Badminton Court|...0.0|     
+|Member|Massage Room 1|30940.0|     
+|Member|..............| ......|     
+|Member|..............| ......|     
+|Member|..........NULL|43488.0|     
+
+
+
+```python
+from pyspark.sql.functions import sum, col, expr
+
+result_df = (
+    club_bookings_df.where("year(start_time) == 2022")
+        .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        .rollup("revenue_from", "facility_name")
+        .agg(sum("booking_amount").alias("revenue"))
+        .orderBy(col("revenue_from").asc_nulls_last(),
+                 col("facility_name").asc_nulls_last())
+)
+
+result_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+
+### Q3. Prepare a revenue report by revenue_from(Guest/Member) and facility_name for year 2022.
+
+Also compute totals for all 4 dimensions of revenue_from and facility_name.
+
+- (revenue_from, facility_name) : rollup
+- (revenue_from, ) : rollup
+- (facility_name, ) : not available in roolup
+- ( , ) : grand total in rollup
+
+
+```python
+from pyspark.sql.functions import sum, col, expr
+
+result_df = (
+    club_bookings_df.where("year(start_time) == 2022")
+        .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        .cube("revenue_from", "facility_name")
+        .agg(sum("booking_amount").alias("revenue"))
+        .orderBy(col("revenue_from").asc_nulls_last(),
+                 col("facility_name").asc_nulls_last())
+)
+
+result_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
+
+
+### Q4: Prepare a revenue report similar to the following. 
+``` revenue_from | facility_name | revenue
+Guest | Badminton Court | 1906.5 Guest | Massage Room 1 | 41600 Guest | Massage Room 2 | 13920 Guest | | 57426.5 Member | Badminton Court | 0 Member | Massage Room 1 | 30940 Member | Massage Room 2 | 1890 Member | | 32830 
+``` 
+
+Roll up the total for the facility_name only.
+
+
+```python
+from pyspark.sql.functions import sum, col, expr
+
+result_df = (
+    club_bookings_df.where("year(start_time) == 2022")
+        .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        .groupingSets([("revenue_from","facility_name"), ("revenue_from", )], "revenue_from", "facility_name")
+        .agg(sum("booking_amount").alias("revenue"))
+        .orderBy(col("revenue_from").asc_nulls_last(),
+                 col("facility_name").asc_nulls_last())
+)
+
+result_df.display()
+```
+
+<img src="pics/name.png" width="800" />
+<br>
+<br>
 
 
 
