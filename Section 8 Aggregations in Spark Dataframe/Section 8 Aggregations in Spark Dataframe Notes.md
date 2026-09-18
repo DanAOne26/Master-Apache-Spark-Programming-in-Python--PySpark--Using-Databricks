@@ -365,26 +365,36 @@ Prepare club bookings dataset for analysis
 |booking_id|member_name|facility_name|start_time|booking_amount|
 
 ```python
+# craete working dataframes from tables
 bookings_df = spark.table("dev.spark_db.bookings")
 facilities_df = spark.table("dev.spark_db.facilities")
 members_df = spark.table("dev.spark_db.members")
 
+# create club_booking dataframe
 club_bookings_df = (
+    # join bookings and facilities dfs by facility_id
     bookings_df.join(facilities_df, "facility_id")
+            # left join the result of the first join with members df by member_id
             .join(members_df, "member_id", "left")
+            # filter records of the result join with expression and cases
             .selectExpr("member_id", "booking_id",
                         "case when member_id==0 then 'Guest Member' else concat_ws(' ', first_name, last_name) end as member_name",
                         "facility_name","start_time",
                         "case when member_id == 0 then slots * guest_cost else slots * member_cost end as booking_amount")
 )
 
+# dispaly the result club_booking dataframe
 club_bookings_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/aggregations-43-0-1.png" width="300" />
+<img src="pics/aggregations-43-0-2.png" width="300" />
 <br>
 <br>
 
+<img src="pics/aggregations-43-0-3.png" width="800" />
+<br>
+<br>
 
 
 ### Q1. Prepare a monthly revenue report for year 2022.
@@ -400,11 +410,13 @@ Also roll up the total for the month column.
 | |132584.5|     
    
 
-
 ```python
+# import required functions
 from pyspark.sql.functions import month, sum, col
 
+# craete result df
 result_df = (
+    # 
     club_bookings_df.where("year(start_time) == 2022")
         .withColumn("mnth", month("start_time"))
         .rollup("mnth")
@@ -415,7 +427,7 @@ result_df = (
 result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/aggregations-43-1-1.png" width="400" />
 <br>
 <br>
 
@@ -457,7 +469,7 @@ result_df = (
 result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/aggregations-43-2-1.png" width="400" />
 <br>
 <br>
 
@@ -487,8 +499,11 @@ result_df = (
 
 result_df.display()
 ```
+<img src="pics/aggregations-43-3-1.png" width="300" />
+<br>
+<br>
 
-<img src="pics/name.png" width="800" />
+<img src="pics/aggregations-43-3-2.png" width="400" />
 <br>
 <br>
 
@@ -516,7 +531,7 @@ result_df = (
 result_df.display()
 ```
 
-<img src="pics/name.png" width="800" />
+<img src="pics/aggregations-43-4-1.png" width="400" />
 <br>
 <br>
 
