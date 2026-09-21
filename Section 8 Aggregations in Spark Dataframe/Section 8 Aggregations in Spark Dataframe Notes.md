@@ -354,7 +354,7 @@ Login to Databricks, connect to serverless cluster and open CH08-Spark Aggregate
 Multilevel aggregates allow summarizing data at several hierarchical levels.       
 We have three variations of multilevel aggregates in Spark.
 
-1. Rollup
+1. Rollup - specialized GroupBy. Group and sum at the end.
 2. Cube
 3. Grouping Sets
 
@@ -416,14 +416,18 @@ from pyspark.sql.functions import month, sum, col
 
 # craete result df
 result_df = (
-    # 
-    club_bookings_df.where("year(start_time) == 2022")
+    # filter data from 2022 only
+        # extract ony one month values
         .withColumn("mnth", month("start_time"))
+        # group by month and claculate the total for all months
         .rollup("mnth")
+        # calculate booking amount as revenue for each month
         .agg(sum("booking_amount").alias("revenue"))
+        # order result with null values last
         .orderBy(col("mnth").asc_nulls_last())
 )
 
+# display the result
 result_df.display()
 ```
 
@@ -455,19 +459,32 @@ Also roll up the total for each group.
 
 
 ```python
+# import required functions
 from pyspark.sql.functions import sum, col, expr
 
+# create result df
 result_df = (
+    # filter records for 2022 only
     club_bookings_df.where("year(start_time) == 2022")
+        # create column 'revenue_from' and filter guests and regular users
         .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        # group values by member group and fasility and calculate (rollup the aggrigate) total for each group
         .rollup("revenue_from", "facility_name")
+        # calculate total bookings as revenue
         .agg(sum("booking_amount").alias("revenue"))
+        # order result columns by null last
         .orderBy(col("revenue_from").asc_nulls_last(),
                  col("facility_name").asc_nulls_last())
 )
 
+# display result df
 result_df.display()
 ```
+
+rollup is summarising our data in 3 levels:
+- revenue_from & facility_name
+- sum of revenue for all guests and members (facility_name: null)
+- grand total revenue (revenue_from: null & facility_name: null)
 
 <img src="pics/aggregations-43-2-1.png" width="400" />
 <br>
@@ -486,17 +503,27 @@ Also compute totals for all 4 dimensions of revenue_from and facility_name.
 
 
 ```python
+# imnport required functions
 from pyspark.sql.functions import sum, col, expr
 
+# create result df
 result_df = (
+    # filter records for 2022 only 
     club_bookings_df.where("year(start_time) == 2022")
+        # filter members by type
         .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        # cube groups and calculate all possible combinations totals
+        # 1: revenue_from: not_null & facility_name: not_null, 2: revenue_from: null & facility_name: not_null
+        # 3: revenue_from: not_null & facility_name: null, 4: revenue_from: null & facility_name: null
         .cube("revenue_from", "facility_name")
+        # calculate booking amount as revenue
         .agg(sum("booking_amount").alias("revenue"))
+        # order records with null values last
         .orderBy(col("revenue_from").asc_nulls_last(),
                  col("facility_name").asc_nulls_last())
 )
 
+# display result df
 result_df.display()
 ```
 <img src="pics/aggregations-43-3-1.png" width="300" />
@@ -517,17 +544,26 @@ Roll up the total for the facility_name only.
 
 
 ```python
+# import required functions
 from pyspark.sql.functions import sum, col, expr
 
+# create result df
 result_df = (
+    # filter records for 2022 only 
     club_bookings_df.where("year(start_time) == 2022")
+        # filter members by type
         .withColumn("revenue_from", expr("case when member_id==0 then 'Guest' else 'Member' end"))
+        # group data from specific levels
+        # 1. revenue_from: not null & facility_name: not null, 2: revenue_from: not null & facility_name: null
         .groupingSets([("revenue_from","facility_name"), ("revenue_from", )], "revenue_from", "facility_name")
+        # calculate booking amount as revenue
         .agg(sum("booking_amount").alias("revenue"))
+        # order records with null values last 
         .orderBy(col("revenue_from").asc_nulls_last(),
                  col("facility_name").asc_nulls_last())
 )
 
+# display result df
 result_df.display()
 ```
 
