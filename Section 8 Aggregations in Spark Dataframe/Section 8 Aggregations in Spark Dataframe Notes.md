@@ -597,39 +597,68 @@ Window aggregation performs calculations (like SUM, AVG, MIN, MAX) on a set of r
 
 Structure       
 ```sql
+-- agg_function() we know we will use sum function
+-- We need Window class
+-- OVER(Window.PARTITION_BY(column_list) - group records
 agg_function().OVER(Window.PARTITION_BY(column_list)
+                        -- sort records
                         .ORDER_BY(column_list)
+                        -- rows used for the aggrigate function
                         .ROWS_BETWEEN(window_start, window_end)
 ```
 
 ### Q1. Prepare a daily revenue report for club facility bookings as shown below.      
-Add a running total to your report. ``` booked_by | booking_date | revenue | running_total
-Guest | 2022-07-03 | 35 | 35 Guest | 2022-07-04 | 390 | 425 Guest | 2022-07-05 | 110 | 535 Guest | 2022-07-06 | 150 | 685 Member | 2022-07-03 | 70 | 70 Member | 2022-07-04 | 107 | 177 Member | 2022-07-05 | 77 | 254 Member | 2022-07-06 | 92 | 346
+Add a running total to your report. 
+``` 
+booked_by | booking_date | revenue | running_total      
+--------------------------------------------------
+Guest     | 2022-07-03   | 35      | 35        
+Guest     | 2022-07-04   | 390     | 425      
+Guest     | 2022-07-05   | 110     | 535      
+Guest     | 2022-07-06   | 150     | 685      
+Member    | 2022-07-03   | 70      | 70       
+Member    | 2022-07-04   | 107     | 177         
+Member    | 2022-07-05   | 77      | 254      
+Member    | 2022-07-06   | 92      | 346      
 
-#### 1.1 Prepare a daily revenue report.
+``` 
+
+
+#### 1.1 Prepare a daily revenue report for July 2022.
 
 
 ```python
+# import required functions
 from pyspark.sql.functions import expr, sum
 
+# create dfs from tables
 bookings_df = spark.table("dev.spark_db.bookings")
 facilities_df = spark.table("dev.spark_db.facilities")
 members_df = spark.table("dev.spark_db.members")
 
+# create summary df
 booking_summary_df = (
+    # use left join for bookings and facilities df
     bookings_df.join(facilities_df, "facility_id")
             .join(members_df, "member_id", "left")
+            # filter data for 2022 only
             .where("month(start_time) = 7 AND year(start_time) = 2022")
+            # set columns
             .withColumns({
+                # filter / calculate target data for the columns
                 "booked_by": expr("case when member_id==0 then 'Guest' else 'Member' end"),
                 "booking_date": expr("to_date(start_time)"),
                 "booking_amount": expr("case when member_id == 0 then slots * guest_cost else slots * member_cost end")
                 })
+            # group the fields
             .groupBy("booked_by", "booking_date")
+            # aggreagate revenue
             .agg(sum("booking_amount").alias("revenue"))
+            # order results
             .orderBy("booking_date")
 )
 
+# display result df
 booking_summary_df.display()
 ```
 
@@ -647,19 +676,27 @@ booking_summary_df.display()
 #### 1.2 Add running total to your report.
 
 ```python
+# import required functions
 from pyspark.sql.window import Window
 from pyspark.sql.functions import sum
 
+# set window specification
 window_spec = (
+    # window grouping
     Window.partitionBy("booked_by")
+        # sorting by field
         .orderBy("booking_date")
+        # sum of the current record and all previous records
         .rowsBetween(Window.unboundedPreceding, Window.currentRow)
 )
 
+# create result df
 result_df = (
+    # set the total column and calculate the revenue with window_spec
     booking_summary_df.withColumn("running_total", sum("revenue").over(window_spec))
 )
 
+# display the result df
 result_df.display()
 ```
 
@@ -670,25 +707,48 @@ result_df.display()
 
 
 ### Q2. Add a 3 Day moving average to your revenue report 
-``` booked_by | booking_date |revenue | 3_day_avg     
-Guest | 2022-07-03 | 35 | 35 Guest | 2022-07-04 | 390 | 212.5 Gues | 2022-07-05 | 110 | 178.33 Guest | 2022-07-06 | 150 | 216.67 Guest | 2022-07-07 | 305 | 188.33 Guest | 2022-07-08 | 550 | 335 Member | 2022-07-03 | 70 | 70 Member | 2022-07-04 | 107 | 88.5 Member | 2022-07-05 | 77 | 84.67 Member | 2022-07-06 | 92 | 92 Member | 2022-07-07 | 199 | 122.67
+``` 
+booked_by | booking_date |revenue | 3_day_avg     
+----------------------------------------------
+Guest     | 2022-07-03   | 35     | 35 
+Guest     | 2022-07-04   | 390    | 212.5 
+Gues      | 2022-07-05   | 110    | 178.33 
+Guest     | 2022-07-06   | 150    | 216.67 
+Guest     | 2022-07-07   | 305    | 188.33 
+Guest     | 2022-07-08   | 550    | 335 
+Member    | 2022-07-03   | 70     | 70 
+Member    | 2022-07-04   | 107    | 88.5 
+Member    | 2022-07-05   | 77     | 84.67 
+Member    | 2022-07-06   | 92     | 92 
+Member    | 2022-07-07   | 199    | 122.67
 ```
 
 ```python
+# import required functions
 from pyspark.sql.window import Window
 from pyspark.sql.functions import avg, round
 
+# set widnwo spec
 window_spec = (
+    # grouping by field
     Window.partitionBy("booked_by")
+        # sort by field in descending (descending is default) so we can use properly with window
         .orderBy("booking_date")
+        # for 3 day moving average we need to start 3 position before the current one (-2 is the 3th position before the current one)
         .rowsBetween(-2, Window.currentRow)
 )
 
+# create tne final df
 result_df = (
+    # set the requried column
     booking_summary_df.withColumn("3_day_avg",
+                                  # calculate the revenue with window aggregation
+                                  # sum values, devide by 3 and the result is average
+                                  # raound the average to second digit after decimal
                                   round(avg("revenue").over(window_spec),2))
 )
 
+# display the result
 result_df.display()
 ```
 
@@ -701,24 +761,42 @@ result_df.display()
 
 Expected Results        
 ``` 
-booked_by | booking_date |revenue Guest | 2022-07-24 |1105 Guest | 2022-07-27 |990 Guest | 2022-07-30 |986.5 Member | 2022-07-25 |626 Member | 2022-07-31 |486 Member | 2022-07-26 |455 
+booked_by | booking_date |revenue 
+---------------------------------
+Guest     | 2022-07-24   |1105 
+Guest     | 2022-07-27   |990 
+Guest     | 2022-07-30   |986.5 
+Member    | 2022-07-25   |626 
+Member    | 2022-07-31   |486 
+Member    | 2022-07-26   |455 
 ```
 
 ```python
+# import required functions
 from pyspark.sql.window import Window
+# rank give us top X values from grouping
+# rank is applied after oreder by function
 from pyspark.sql.functions import rank, col
 
+# set window spec
 window_spec = (
+    # group by field
     Window.partitionBy("booked_by")
+        # sort descending by field so we can use rank function
         .orderBy(col("revenue").desc())
 )
 
+# create result df
 result_df = (
+    # use rank function with window spec
     booking_summary_df.withColumn("rank", rank().over(window_spec))
+            # filter ony first 3 records
             .where("rank <= 3")
+            # delete the intermediate rank column
             .drop("rank")
 )
 
+# display the result df
 result_df.display()
 ```
 
