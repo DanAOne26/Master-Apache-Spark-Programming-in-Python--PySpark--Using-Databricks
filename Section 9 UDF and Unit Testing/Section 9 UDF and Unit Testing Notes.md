@@ -13,13 +13,6 @@ filename.py
 
 ```
 
-Run the file
-    terminal --> python filename.py
-
-Result:
-
-
-
 <img src="pics/name.png" width="800" />
 <br>
 <br>
@@ -30,7 +23,26 @@ Result:
 
 [⬆ Back to content](#content)
 
-### Subheader
+We should have imported all required files in section 9. Setup Your Hands-On Environment by executing the spark_programming.dbc notebook.
+
+Login to Databricks, connect to serverless cluster and open CH09-UDF and Unit Testing/01-Introduction to UDF notebook
+
+
+### Spark UDF
+1. Scalar Python UDF
+2. Pandas Vectorized UDF
+3. UDTF
+
+### Scalar Python UDF
+1. User-defined functions
+2. Take or return Python objects
+3. Operate one row at a time
+4. Serialized/Deserialized by pickle or Arrow
+
+
+### 1. How to define and use a Python UDF
+
+
 
 
 
