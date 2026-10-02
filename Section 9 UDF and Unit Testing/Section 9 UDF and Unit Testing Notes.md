@@ -43,14 +43,17 @@ Login to Databricks, connect to serverless cluster and open CH09-UDF and Unit Te
 ### 1. How to define and use a Python UDF
 
 ### 1.1 Define a UDF        
+
 Create a UDF with the following functionality
 
 Input -> member_id      
 Output -> Guest/Member      
 
 ```python
+# import user definition function functionality
 from pyspark.sql.functions import udf
 
+# set function decorator and configure custom function
 @udf(returnType="string", useArrow=True)
 def member_type_udf(id: str):
     return 'Guest' if id==0 else 'Member'
@@ -60,6 +63,7 @@ def member_type_udf(id: str):
 ### 1.2 Use a UDF in Dataframe Transformations
 
 ```python
+# 
 member_df = spark.table("dev.spark_db.members")
 
 result_df = member_df.withColumn("member_type", member_type_udf("member_id"))
@@ -123,7 +127,80 @@ result_df.limit(3).display()
 
 [⬆ Back to content](#content)
 
-### Subheader
+**Pandas UDF (Vectorized UDF)**
+
+1. User-defined functions       
+2. Take or return Pandas Series/DataFrame       
+3. Operate block by block (Vectorized)      
+4. Serialized/Deserialized by Arrow     
+
+Note: You must know Pandas to work with the data inside the function        
+
+### 1. How to define and use a Pandas UDF
+
+#### 1.1 Create a Pandas UDF with the following functionality
+
+- Input -> member_id
+- Output -> Guest/Member
+
+
+```python
+from pyspark.sql.functions import pandas_udf
+import pandas as pd
+
+@pandas_udf("string")
+def member_type_pudf(id: pd.Series)-> pd.Series:
+    return id.apply(lambda x: 'Guest' if x==0 else 'Member')
+```
+
+#### 1.2 Use a Pandas UDF in Dataframe Transformations
+
+List all bookings made by guests
+
+```python
+bookings_df = spark.table("dev.spark_db.bookings")
+
+bookings_df.where(member_type_pudf("member_id")=="Guest").display()
+```
+
+<img src="pics/user-definition-function-UDF-46-1-2.png" width="800" />
+<br>
+<br>
+
+
+#### 1.3. Register Pandas UDF for use in Spark SQL
+
+```python
+spark.udf.register("get_member_type", member_type_pudf)
+```
+
+
+
+
+#### 1.4 Pandas UDF from Spark SQL
+
+```sql
+select * from dev.spark_db.bookings
+where get_member_type(member_id)=="Guest"
+```
+
+<img src="pics/user-definition-function-UDF-46-1-4.png" width="800" />
+<br>
+<br>
+
+
+#### 1.5 Pandas UDF in Expressions
+
+```python
+result_df = bookings_df.where("get_member_type(member_id)=='Guest'").display()
+```
+
+<img src="pics/user-definition-function-UDF-46-1-4.png" width="800" />
+<br>
+<br>
+
+
+
 
 
 
