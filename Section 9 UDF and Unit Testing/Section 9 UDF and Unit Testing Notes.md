@@ -148,6 +148,12 @@ result_df.limit(3).display()
 
 **Pandas UDF (Vectorized UDF)**
 
+Like Python UDF, Pandas UDF also, user defined functions. They take input, do the processing and return the result. But they are different compared to the Python UDF in two respects.      
+- Pandas UDFs take or return Pandas series or Pandas data frame. Compare it with the Python UDF where every function call will get one ID, then next function call will get next ID. So far processing thousand records function is called 1,000 times. But if you write a Pandas UDF for the same purpose, 1,000 records can be processed in one function call because a Spark will pass 1,000 IDs at a time in an array to the Pandas UDF and you can process all 1,000 values in a single function call. So that makes it fast. So that's the first difference.
+- They operate block by block - Block by block means you take a block of IDs or block of input means an array of input, process the entire array and then return the result as an array - the entire block. And this kind of operation is known as Vectorized Operation, so they perform better. Serialization and deserialization of input and output in Panda's UDF is by default arrow, because arrow is fast, it is better.
+
+Recommendation is whenever you need to write a user defined function, use Pandas UDF or Vectorized UDF.
+
 1. User-defined functions       
 2. Take or return Pandas Series/DataFrame       
 3. Operate block by block (Vectorized)      
@@ -164,21 +170,31 @@ Note: You must know Pandas to work with the data inside the function
 
 
 ```python
+# import required libraries
 from pyspark.sql.functions import pandas_udf
 import pandas as pd
 
+# define pandas UDF
+# f is always none, first parameter is the function itself that we will define afterwards.
+# Second parameter is the return type - "string"
 @pandas_udf("string")
 def member_type_pudf(id: pd.Series)-> pd.Series:
+    # processing the whole series
     return id.apply(lambda x: 'Guest' if x==0 else 'Member')
 ```
+
+Pandas UDF is defined. Now how do I use it? It is a user defined function, so I can use it anywhere I can use a Spark function. to use a Spark function I can use my user defined function also at that place.
+
 
 #### 1.2 Use a Pandas UDF in Dataframe Transformations
 
 List all bookings made by guests
 
 ```python
+# create bookings df from table
 bookings_df = spark.table("dev.spark_db.bookings")
 
+# use the defined function to filter guest members and siplay results
 bookings_df.where(member_type_pudf("member_id")=="Guest").display()
 ```
 
@@ -186,20 +202,21 @@ bookings_df.where(member_type_pudf("member_id")=="Guest").display()
 <br>
 <br>
 
+So instead of writing that case statement wherever I want to check whether this ID represents a guest or a member, I can centralize the logic in one function and use everywhere that same function and if the logic changes in future I have to modify this function only and my rest of the code works as it is without any change. That's the reason we create functions for business logic.
+
 
 #### 1.3. Register Pandas UDF for use in Spark SQL
 
 ```python
+# register Pandas UDF under specific name
 spark.udf.register("get_member_type", member_type_pudf)
 ```
-
-
-
 
 #### 1.4 Pandas UDF from Spark SQL
 
 ```sql
 select * from dev.spark_db.bookings
+-- use the Pandas UDF in SQL
 where get_member_type(member_id)=="Guest"
 ```
 
@@ -211,6 +228,7 @@ where get_member_type(member_id)=="Guest"
 #### 1.5 Pandas UDF in Expressions
 
 ```python
+# use Pandas UDF in expression
 result_df = bookings_df.where("get_member_type(member_id)=='Guest'").display()
 ```
 
@@ -218,9 +236,7 @@ result_df = bookings_df.where("get_member_type(member_id)=='Guest'").display()
 <br>
 <br>
 
-
-
-
+In typical case, we register the function name with its original name to avoid confusion. So that's all about Vectorized UDF and Vectorized UDFs are comparatively faster because in this kind of expression where I'm saying bookings dot where and I'm saying call this function with the member ID and check for the result as guest, behind the scene Spark will vectorize this operation. Vectorize this operation means Spark will take maybe 10,000 member IDs, pack it into an array, pass it to the function. Your function will evaluate all 10,000 values in one single function call and the result will be returned as an array of the results. 10,000 results in series and Spark will check it for those 1,000 records at once. So this thing behind the scene happens a lot of things to vectorize this operation that is taken care of by the Spark engine itself and these functions work faster because they cut down the number of function calls significantly.
 
 
 [⬆ Back to content](#content)
