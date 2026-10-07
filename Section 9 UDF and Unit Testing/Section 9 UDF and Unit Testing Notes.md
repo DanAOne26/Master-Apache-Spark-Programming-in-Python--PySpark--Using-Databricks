@@ -247,7 +247,104 @@ In typical case, we register the function name with its original name to avoid c
 
 [⬆ Back to content](#content)
 
-### Subheader
+### Python UDTF
+
+1. User-defined function that returns a table
+2. Take Python Objects as input
+3. Operate one row at a time
+4. Serialized/Deserialized by pickle or Arrow
+
+### 1. How to define and use a Python UDTF
+
+#### 1.1 Define a UDTF
+
+Create a UDTF as the following.
+
+- Input: start_date (ex: 2025-07-27), expand_days (ex: 5)
+- Output: expand the given start_date to expand_days as below
+
++----------+        
+|date_value|        
++----------+        
+|2025-07-27|        
+|2025-07-28|        
+|2025-07-29|        
+|2025-07-30|        
+|2025-07-31|        
++----------+        
+
+
+```python
+# import required functions
+from pyspark.sql.functions import udtf
+from datetime import datetime, timedelta
+
+# 
+@udtf(returnType="date_value: string", useArrow=True)
+class DateExploder:
+    def eval(self, start_date: str, expand_days: int):
+        current = datetime.strptime(start_date, "%Y-%m-%d")
+        for i in range(expand_days):
+            yield (current.strftime("%Y-%m-%d"), )
+            current += timedelta(days=1)
+```
+
+```python
+# import required libraries
+from pyspark.sql.functions import lit
+
+# filter and display results
+DateExploder(lit("2025-07-27"), lit(6)).display()
+```
+
+<img src="pics/user-definition-table-function-UDF-47-1-1.png" width="300" />
+<br>
+<br>
+
+
+#### 1.2 Use a UDTF in Dataframe Transformations
+
+```python
+data_schema = "id int, name string, join_date string"
+data_list = [(101, "Prashant", "2025-02-25"),
+             (102, "Sushant", "2025-02-26")]
+
+students_df = spark.createDataFrame(data_list, data_schema).alias("s")
+
+result_df = (
+    students_df.lateralJoin(DateExploder("s.join_date", lit(5)))
+        .selectExpr("id", "name", "join_date", "date_value as attendance_date")
+)
+
+result_df.display()
+```
+
+
+<img src="pics/user-definition-table-function-UDF-47-1-2.png" width="500" />
+<br>
+<br>
+
+
+#### 1.3. Register UDTF for use in Spark SQL
+
+```python
+spark.udtf.register("date_exploder", DateExploder)
+```
+
+#### 1.4 UDTF from Spark SQL
+
+```python
+students_df.createOrReplaceTempView("students_view")
+```
+
+```sql
+select *
+from students_view, lateral date_exploder(join_date, 2)
+```
+
+<img src="pics/user-definition-table-function-UDF-47-1-4.png" width="500" />
+<br>
+<br>
 
 
 
