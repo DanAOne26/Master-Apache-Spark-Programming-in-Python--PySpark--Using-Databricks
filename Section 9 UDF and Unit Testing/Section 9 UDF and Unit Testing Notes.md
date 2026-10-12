@@ -252,7 +252,7 @@ In typical case, we register the function name with its original name to avoid c
 1. User-defined function that returns a table
 2. Take Python Objects as input
 3. Operate one row at a time
-4. Serialized/Deserialized by pickle or Arrow
+4. Serialized/Deserialized by Pickle or Arrow (for better performance)
 
 ### 1. How to define and use a Python UDTF
 
@@ -261,7 +261,7 @@ In typical case, we register the function name with its original name to avoid c
 Create a UDTF as the following.
 
 - Input: start_date (ex: 2025-07-27), expand_days (ex: 5)
-- Output: expand the given start_date to expand_days as below
+- Output: expand the given start_date to expand_days as below - each row is + 1 day until the expand_days
 
 +----------+        
 |date_value|        
@@ -279,61 +279,84 @@ Create a UDTF as the following.
 from pyspark.sql.functions import udtf
 from datetime import datetime, timedelta
 
-# 
+# set returnType as the column we want to receive as result as string
+# use Arrow serialization as more fast than the Pickle
 @udtf(returnType="date_value: string", useArrow=True)
+# create a class for the UDTF. UDF can be a function but UDTF must be a class.
 class DateExploder:
+    # define eval function with the same 2 parameters - start_date and expand_days
     def eval(self, start_date: str, expand_days: int):
+        # create a variable for the current date
         current = datetime.strptime(start_date, "%Y-%m-%d")
+        # make a loop as the expand_days
         for i in range(expand_days):
+            # use yield that return tuple
             yield (current.strftime("%Y-%m-%d"), )
+            # increment the current date variable with the loop state
             current += timedelta(days=1)
 ```
+
+Use the UDTF:
 
 ```python
 # import required libraries
 from pyspark.sql.functions import lit
 
-# filter and display results
+# Use the calss of the UDTF and display results
+# use lit() to convert value into a column
 DateExploder(lit("2025-07-27"), lit(6)).display()
 ```
 
-<img src="pics/user-definition-table-function-UDF-47-1-1.png" width="300" />
+<img src="pics/user-definition-table-function-UDF-47-1-1.png" width="200" />
 <br>
 <br>
 
 
 #### 1.2 Use a UDTF in Dataframe Transformations
 
+We can use UDFT in 'from' clauses and lateral joins only
+
 ```python
+# create a schema
 data_schema = "id int, name string, join_date string"
+# define example data
 data_list = [(101, "Prashant", "2025-02-25"),
              (102, "Sushant", "2025-02-26")]
 
+# create dataframe froim the example data
 students_df = spark.createDataFrame(data_list, data_schema).alias("s")
 
+# create result df 
 result_df = (
+    # use lateral join to use UDTF
+    # DateExploder - UDTF name and required aprameters
     students_df.lateralJoin(DateExploder("s.join_date", lit(5)))
+        # use expression
         .selectExpr("id", "name", "join_date", "date_value as attendance_date")
 )
 
+# print result df
 result_df.display()
 ```
-
 
 <img src="pics/user-definition-table-function-UDF-47-1-2.png" width="500" />
 <br>
 <br>
 
+We can see tht we have 5 records for each member in the example data
+
 
 #### 1.3. Register UDTF for use in Spark SQL
 
 ```python
+# register UDTF
 spark.udtf.register("date_exploder", DateExploder)
 ```
 
 #### 1.4 UDTF from Spark SQL
 
 ```python
+# create a temporary view and access it from SQL
 students_df.createOrReplaceTempView("students_view")
 ```
 
@@ -346,6 +369,7 @@ from students_view, lateral date_exploder(join_date, 2)
 <br>
 <br>
 
+We can see that the results are as expected - 2 records for each member from the example data
 
 
 [⬆ Back to content](#content)
