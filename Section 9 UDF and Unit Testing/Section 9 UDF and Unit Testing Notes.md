@@ -380,9 +380,124 @@ We can see that the results are as expected - 2 records for each member from the
 
 [⬆ Back to content](#content)
 
-### Subheader
+### Unit Testing Spark code
+
+1. What do we unit test?
+
+### How do you want to test?
+
+1. Design for unit test
+   - Reusable Modular code (Refactor your code if needed) 
+2. Prepare test data
+3. Write unit tests
+4. Run unit tests
 
 
+### 1. How do you write Spark code?
+
+You have booking summary data file booking-summary.csv.     
+Read the data from the file and prepare top 3 revenue dates for guest and members as shown below.       
+     
+<img src="pics/unit-testing-spark-code-48-1-1.png" width="250" />
+<br>
+<br>
+
+```python
+# define schema
+file_schema = "booked_by string, booking_date date, revenue double"
+
+# create a summary df
+summary_df = (
+    # read the data from csv
+    spark.read.format("csv")
+        # skip first line as headers
+        .option("header", "true")
+        # use the created schema
+        .schema(file_schema)
+        # set the daat location
+        .load("/Volumes/dev/spark_db/datasets/spark_programming/data/booking-summary.csv")
+)
+
+# display the summary df
+summary_df.display()
+```
+
+<img src="pics/unit-testing-spark-code-48-1-2.png" width="500" />
+<br>
+<br>
+
+
+
+```python
+# import required libraries
+from pyspark.sql.window import Window
+from pyspark.sql.functions import col, rank
+
+# define window spec
+window_spec = (
+    # analysis for each book_by group
+    Window.partitionBy("booked_by")
+        # order descending by revenue
+        .orderBy(col("revenue").desc())
+        # default aggregate loop behavior
+        .rowsBetween(Window.unboundedPreceding, Window.currentRow)
+)
+
+# create result df
+result_df = (
+    # use the summary df
+    summary_df
+        # add new column called rank
+        .withColumn("rank", rank().over(window_spec))
+        # filter top 3 records
+        .where("rank <= 3")
+        # drop the rank column after finishing ranking data
+        .drop("rank")
+)
+
+# display the result df
+result_df.display()
+```
+
+<img src="pics/unit-testing-spark-code-48-1-3.png" width="400" />
+<br>
+<br>
+
+
+### 2. Refactoring or Follow Best Practices for Coding      
+
+1. Modular and Reusable Code       
+2. Object-Oriented Approach / Functional Approach      
+
+
+## 05-Main-Application_Notebook
+
+### 1. Main Application Notebook
+
+#### 1.1 Reload During Development
+
+```python
+%load_ext autoreload
+%autoreload 2
+```
+
+### 1.2 Main Application code
+
+```python
+import sys
+sys.path.append("/Workspace/Users/danaone4126@gmail.com/spark_programming/CH09-UDF and Unit Testing")
+
+from booking_analysis import read_booking_summary, top_3_revenue
+
+summary_df = read_booking_summary(spark)
+result_df = top_3_revenue(summary_df)
+
+result_df.display()
+```
+
+<img src="pics/unit-testing-spark-code-48-1-4.png" width="400" />
+<br>
+<br>
 
 [⬆ Back to content](#content)
 
