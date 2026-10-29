@@ -499,8 +499,43 @@ result_df.display()
 <br>
 <br>
 
-[⬆ Back to content](#content)
+#### Code modification:
 
+In case we modify our code in booking_analysis.py and we need to reload the code we need to terminate the current session, reload the file and then work with the updated version.
+
+#### Test appraoches
+
+- We can test the expected result of specfic function
+  - columns counts, columns names, rows count or else
+
+
+#### Reload During Development
+
+```python
+%load_ext autoreload
+%autoreload 2
+```
+
+#### 1.2. Run Unit Test
+
+```python
+import pytest
+import sys
+
+sys.dont_write_bytecode = True  # don't generate code for saving on the cloud. It requires permissions and it can casue errors
+
+# execute pytest framework
+# "." - execute all tests from current directory
+retcode = pytest.main([".", "-v", "-p", "no:cacheprovider"])
+assert retcode == 0, "The pytest invocation failed."
+```
+
+<img src="pics/unit_test_results.png" width="1000" />
+<br>
+<br>
+
+
+[⬆ Back to content](#content)
 
 
 
