@@ -36,7 +36,7 @@ Install all requirements below to be able to work with Apache spark locally:
 
 1. JDK 17/21
 2. Python 3.10+
-   - Pytho 3.11 for Windows. 
+   - Python 3.11 for Windows. 
      - Check for the current supported python by spark. Lower version is more secure and avoid unexpecte errors.
      - Make sure that Python is added to system environment PATH
 3. Spark Binaries 
@@ -96,7 +96,149 @@ Now we are conffident that spark will work in our IDE
 
 Configure IDE to work with Spark
 
+Requirements:
 
+Create a Spark Application as the following   
+1. Reads data from a survey.csv datafile    
+2. Computes the analysis results as shown below   
+
+Country       |      count    
+United States |         4   
+Canada        |         2   
+United Kindom |         1   
+
+Looks like what we want to do is read data from this survey.csv file, create a data frame and perform a group by count analysis on that data frame. And then print that result or produce that result.
+
+Before we start trying to do this, let's try to understand some basic complications or problems while working on your local machine. In this case we will use Python 3.11 for Windows.
+
+Problem:
+- Developing on local machine
+- Deploy on cluster
+
+1. Spark session (Local/Cluster)    
+So the first problem is is Spark session for local machine is different and is Spark session for the cluster is different. So how do we handle that?
+While developing our application and testing it on my laptop, I should be creating a local Spark session and when we go and deploy our application on the cluster, we should be creating a Spark session for the cluster.
+Solution: It's just a variable. If you are doing it on local, variable value is 'local'. If you're doing it on the cluster, the variable value will be 'cluster'.
+
+2. Data File Source (Local/Cluster)   
+Which data file to read and what is the location of the data file is another variable that we have to manage.
+One small consideration here is that on the cluster you might have the actual data file, which is huge, which could be huge. But locally we need only small data file for development.
+
+### Development checks    
+First sanity check - Make sure to choose the same Python version which you have configured with the Spark Home on your local machine.   
+Second sanity check - make sure taht 'pyspark' package is installed included in the pyspark-home package.
+
+### The Development   
+1. We must prepare the project folder - HelloSpark in the current session   
+2. We want to do two things, load the data, create a data frame, and then perform the analysis, desired analysis to produce the result. Only two things.    
+
+Create utils.py
+
+```python
+## import required requirements
+from pyspark.sql import SparkSession
+
+## Solve the Spark Session problem - local/cluster variable
+def get_spark_session(env: str):
+    if env == "local":
+        return (
+            SparkSession.builder
+                # create only 2 threats only for local development
+                .master("local[2]")
+                .getOrCreate()
+        )
+    else:
+        # create threats allocated by the cluster
+        return SparkSession.builder.getOrCreate()
+
+## Read data
+def load_survey_df(spark, data_file):
+    # simpel file sample for the example
+    file_schema = """Timestamp TIMESTAMP,Age INT,Gender STRING,Country STRING,state STRING,self_employed STRING,
+                family_history STRING,treatment STRING,work_interfere STRING,no_employees STRING,remote_work STRING,
+                tech_company STRING,benefits STRING,care_options STRING,wellness_program STRING,seek_help STRING,anonymity STRING,
+                leave STRING,mental_health_consequence STRING,phys_health_consequence STRING,coworkers STRING,
+                supervisor STRING,mental_health_interview STRING,phys_health_interview STRING,mental_vs_physical STRING,
+                obs_consequence STRING,comments STRING"""
+    # return dataframe
+    return (spark.read.format("csv")
+            .option("header", "true")
+            .schema(file_schema)
+            .load(data_file)
+        )
+
+## Count countries
+def count_by_country(survey_df):
+    # filter the load_survey_df result
+    return(
+        survey_df.filter("Age < 40")
+        .groupBy("Country")
+        .count()
+    )
+```
+
+
+Create HellowSpark.py
+
+```python
+# import reqired libraries
+import sys
+from lib.utils import *
+
+if __name__ == "__main__":
+    # if there are agument different than 3, exit with error
+    if len(sys.argv) != 3:
+        print("Usage: HelloSpark {local, qa, prod} file_path: Arguments are missing")
+        sys.exit(-1)
+    # create spark session with env name
+    spark = get_spark_session(sys.argv[1])
+    # load file path
+    file_path = sys.argv[2]
+    # Call the functions with the required arguments
+    survey_df = load_survey_df(spark, file_path)
+    result_df = count_by_country(survey_df)
+    # show the result, show() is used in local environment
+    result_df.show()
+```
+
+Run the file and check the result. it should be the same as in the requirements.
+
+
+Create a local unit testing file test_hello_spark.py
+
+```python
+# import libraries
+import pytest
+from lib.utils import *
+from pyspark.testing.utils import assertDataFrameEqual
+
+@pytest.fixture(scope="session")
+def spark():
+    # Global Spark Session passed as fixture
+    return get_spark_session("local")
+
+@pytest.fixture(scope="session")
+def survey_file():
+    return "data/sample.csv"
+
+def test_load_survey_df(spark, survey_file):
+    # Actual Result
+    expected_rows_count = load_survey_df(spark, survey_file).count()
+    assert expected_rows_count == 9
+
+def test_count_by_country(spark, survey_file):
+    # Expected Results
+    data_list = [("United States", 4), ("Canada", 2), ("United Kingdom", 1)]
+    data_schema = "Country string, count long"
+    expected_df = spark.createDataFrame(data_list, data_schema)
+
+    #Actual Results
+    raw_df = load_survey_df(spark, survey_file)
+    actual_df = count_by_country(raw_df)
+
+    # Assert
+    assertDataFrameEqual(expected_df, actual_df)
+```
 
 
 
@@ -109,8 +251,12 @@ Configure IDE to work with Spark
 
 [⬆ Back to content](#content)
 
-### Subheader
+Spark on local machine
 
+1. JDK 17/21
+2. Python 3.10+
+   - Python 3.11 for Windows
+3. 
 
 
 [⬆ Back to content](#content)
