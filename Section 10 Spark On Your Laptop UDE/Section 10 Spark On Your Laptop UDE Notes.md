@@ -256,7 +256,138 @@ Spark on local machine
 1. JDK 17/21
 2. Python 3.10+
    - Python 3.11 for Windows
-3. 
+3. Spark Binaries
+4. Hadoop WinUtils
+5. Environment Variables
+   - SPARK_HOME
+   - HADOOP_HOME
+   - PYSPARK_PYTHON
+   - PYTHONPATH
+6. IDE
+
+Challanges:
+1. Setup local Spark configuration
+2. Local environment lack the additional functionalities production platforms are providing
+   - The solution - Spark Connect - test the local developed solution on the production environemnt
+   - Using Spark Connect simplify local development requirements just to
+     1. JDK 17/21
+     2. Python 3.10+
+     3. IDE
+
+In this section we will lear how to use Spark Connect and develop local Spark applications. 
+
+1. Create local Spark project with python 3.12 local virtual environment        
+2. Check what version is supported on the Databricks serverless cluster     
+   1. Open any notebook and open the environment tab from the right menu        
+
+<img src="pics/local-env-requirements.png" width="400" />
+<br>
+<br>
+
+   2. We can check other environment specifics in the Data Bricks documentation for the specific envronment version here - https://docs.databricks.com/aws/en/release-notes/serverless/environment-version/four     
+   - in the time of this course the platform support:       
+     - Python 3.12      
+     - Databricks Connect: 17       
+
+For more easilly virtual environment management we can use miniconda:
+
+**MINICONDA**
+
+   1. Install MiniConda     
+    - Download MiniConda - https://www.anaconda.com/download/success        
+      - Install for current user only       
+      - Check if miniconda is installed properly        
+      - Anaconda PS Terminal ⇾ conda --version      
+        Example Result: conda 26.4.0        
+      - Change your current environment back to the default one       
+        - Anaconda PS Terminal ⇾ conda activate       
+
+   2. Update MiniConda      
+    - Anaconda PS Terminal ⇾ conda update conda     
+
+   3. Check current version     
+    - Anaconda PS Terminal ⇾ conda --version        
+    - Example Result: conda 26.4.0      
+  
+   4. Manage environments       
+    - Open Anaconda PowerShell Prompt terminal    
+    4.1. Create new envronment     
+      - Anaconda PS Terminal ⇾ conda create --name pyspark-dev     
+    4.2. List Environmens      
+      - Anaconda PS Terminal ⇾ conda info --envs        
+    4.3. Activate specific environment     
+      - Anaconda PS Terminal ⇾ conda activate pyspark-dev       
+    4.4. Install packages/libraries in conda environment via activated environment     
+      - Anaconda PS Terminal ⇾ conda install python=3.12        
+      - Anaconda PS Terminal ⇾ python -m pip install "databricks-connect==17.3.*"       
+
+3. Create a small project with spark session using spac connect (databricks connect)
+
+- Find Databricks host        
+Host we can find when we log in on Databricks and go to Home page. Copy the address from the browser page and exclude the parameters. Example - host - https://xxx-xxxxxxxx-xxxx.cloud.databricks.com/
+
+- Create Databricks Token       
+Go to Databricks platform/ Profile / Settings / Developer / Acces Token / Generate new token    
+  - Name: databricks_local_dev_token     
+  - Lifetime (days): 180        
+  - Auto-scope tokens: On
+  - Generate
+
+Create .env file and include it to .gitignore
+
+.env
+
+```txt      
+host = "https://xxx-xxxxxxxx-xxxx.cloud.databricks.com/"        
+token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"      
+```
+
+Create small file to connect to Databricks:
+
+HelloSparkConnect.py
+
+```python
+# import required libraries to create a spark session
+from pathlib import Path
+from databricks.connect import DatabricksSession
+from dotenv import load_dotenv
+import os
+
+# load .env file
+load_dotenv(Path(__file__).with_name(".env"))
+
+# set variables for host and token for databricks connection
+# host = "https://xxx-xxxxxxxx-xxxx.cloud.databricks.com/"
+# token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+host = os.getenv("host")
+token = os.getenv("token")
+# cluster_id = os.getenv("CLUSTER_ID")
+
+# builder - set the connection to Databricks cluster
+spark = (
+    DatabricksSession.builder
+        .host(host)
+        .token(token)
+        # .clusterId(cluster_id)    # connect to specific cluster (not included in the free tier)
+        .serverless()
+        .getOrCreate()
+)
+
+# create dataframe from exisiting table 'diamonds'
+df = spark.read.table("dev.spark_db.diamonds")
+# show 5 records fomr the created dataframe
+df.show(5)
+```
+
+Run the file:       
+terminal --> conda run -n pyspark-dev python /path/to/HelloSparkConnect.py
+
+Result:
+
+<img src="pics/databricks-connect-result.png" width="300" />
+<br>
+<br>
+
 
 
 [⬆ Back to content](#content)
