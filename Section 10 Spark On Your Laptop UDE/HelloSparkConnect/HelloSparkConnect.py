@@ -1,8 +1,14 @@
+from pathlib import Path
 from databricks.connect import DatabricksSession
+from dotenv import load_dotenv
 import os
 
-host = os.getenv("DATABRICKS_HOST")
-token = os.getenv("DATABRICKS_TOKEN")
+load_dotenv(Path(__file__).with_name(".env"))
+
+# host = "https://xxx-xxxxxxxx-xxxx.cloud.databricks.com/"
+# token = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+host = os.getenv("host")
+token = os.getenv("token")
 
 spark = (
     DatabricksSession.builder
