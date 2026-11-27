@@ -299,190 +299,174 @@ Now let me show you one final record. Here it is.
 
 I opened one sample output record in the Visual Studio Code. The final output to Kafka must be a JSON record. Everything is collapsed, so you can see the top-level structure of the JSON message. We have three top-level fields in the JSON message. Event Header, Keys and Payload. The JSON message is a generic structure that is being followed for all the entities. We are working on the account entity. So let's see how account entity data fits into this JSON message structure. Let me explain the event header.
 
+```json
+    "eventHeader": {
+        "eventIdentifier": "38d57237-a566-4ec4-a471-f659e9ce8437",
+        "eventType": "SBDL-Contract",
+        "majorSchemaVersion": 1,
+        "minorSchemaVersion": 0,
+        "eventDateTime": "2022-09-06T20:49:03+0530"
+    },
+```
+
 So the event header has got five items:     
 - eventIdentifier is a UUID for each record. You are asked to dynamically generate it for each entity.
 - eventType is a fixed string. For the account entity, it will be SBDL-Contrat, as shown here.
 - majorSchemaVersion and minorSchemaVersion, which are also fixed numbers.
-- eventDateTime is the timestamp.
+- eventDateTime is the timestamp. This was when the event was generated for sending it to Kafka. So basically, it is a current system timestamp. 
 
-This was when the event was generated for sending it to Kafka.
+The key is a JSON Array. You can see the entity symbol here.
 
-So basically, it is a current system timestamp.
-
-Now let me collapse the header and expand the keys.
-
-The key is a JSON Array.
-
-You can see the entity symbol here.
+```json
+    "keys": [
+        {
+            "keyField": "contractIdentifier",
+            "keyValue": "6982391067"
+        }
+    ],
+```
 
 Each element of the key is a struct of two fields.
 
-key field name
+- key field name
+- keyValue
 
-and keyValue
+We have a single key field for the account entity. The value shown here is the account id. The key field name is contractIdentifier. But that's nothing but account_id. In the banking system, you are told to represent an account as a contract. So the account_id is sent as contractIdentifier. The key is an array. In our case, we have only one primary key field, so you will see only one element in the array. But some other entities may have composite keys. And they will be sending all the composite key fields in this array. But for the account entity, it is as simple as a single key field. That's all about the keys. 
 
-We have a single key field for the account entity.
+The last one is the payload. And that's the actual data. So we have eight fields in the payload.      
 
-The value shown here is the account id.
 
-The key field name is contractIdentifier.
+- contractIdentifier is the account_id. So, each field goes as a set of three values.       
+  - operation       
+  - oldValue        
+  - newValue        
 
-But that's nothing but account_id.
-
-In the banking system, you are told to represent an account as a contract.
-
-So the account_id is sent as contractIdentifier.
-
-The key is an array.
-
-In our case, we have only one primary key field, so you will see only one element in the array.
-
-But some other entities may have composite keys.
-
-And they will be sending all the composite key fields in this array.
-
-But for the account entity, it is as simple as a single key field.
-
-That's all about the keys.
-
-The last one is the payload.
-
-And that's the actual data.
-
-Let me collapse the key and expand the payload.
-
-Great!
-
-So we have eight fields in the payload.
-
-The contractIdentifier is the account_id.
-
-Let me expand it and show you.
-
-So, each field goes as a set of three values.
-
-operation
-
-oldValue
-
-and newValue
-
-In the case of the INSERT operation, the old value is null, and hence it is not shown here.
-
-For our requirement, everything is an INSERT operation.
-
-We are not implementing the UPDATE operation in this phase.
-
-But in future phases, we will implement the UPDATE operation, so the JSON message is designed like this.
-
-The point is straight.
+In the case of the 'INSERT' operation, the old value is null, and hence it is not shown here. For our requirement, everything is an INSERT operation. We are not implementing the UPDATE operation in this phase. But in future phases, we will implement the UPDATE operation, so the JSON message is designed like this. The point is straight.
 
 Each field goes as a set of three values.
 
-operation
+```json
+    "payload": {
+        "contractIdentifier": {
+            "operation": "INSERT",
+            "newValue": "6982391067"
+        },
+    ...
+    }
+```
 
-oldValue
+- operation
+- oldValue
+- newValue
 
-and newValue
+For the current project, the operation type is always INSERT. The oldValue is always null and should not appear in the JSON message. The newValue is the field value from the table. 
 
-For the current project, the operation type is always INSERT.
+Let's look at the next one. The contactStartDateTime is the account_start_date field from the accounts table. And you can see the values here. I hope it makes sense now. Most fields will be sent as a triplet of three values: operation, oldValue and newValue. 
 
-The oldValue is always null and should not appear in the JSON message.
+```json
+        "contactStartDateTime": {
+            "operation": "INSERT",
+            "newValue": "2018-08-29T17:18:59.000+05:30"
+        },
+```
 
-The newValue is the field value from the table.
-
-Make sense?
-
-Great!
-
-Let's look at the next one.
-
-Let's look at the next one.
-
-The contactStartDateTime is the account_start_date field from the accounts table.
-
-And you can see the values here.
-
-I hope it makes sense now.
-
-Right?
-
-Most fields will be sent as a triplet of three values: operation, oldValue, and newValue.
-
-In our case, the operation is always INSERT, and the oldValue is NULL.
-
-Make sense?
-
-Great!
-
-But some fields are combined and have different rules.
-
-Let's look at the contractTitle.
-
-Let me collapse all other fields and show you only the contract title.
-
-Here it is.
-
-So the contract title is an array of all the legal titles from the account table.
-
-You can see it here.
-
-Let me show you the sample data.
-
-Here it is.
-
-Look at the third record.
-
-Acosta Inc is the legal title one, and David walker is the legal title two.
-
-Now come back to the JSON message.
-
-Both legal titles are combined and sent into an array of legal titles.
-
-So this is another complexity.
-
-The rest of the fields are simple,
-
-and you can easily understand the mapping from the account table to the JSON message.
-
-Now let's come to the partyRelations.
-
-The partyRelations is an array of all the parties and their address.
-
-This account has got three associated parties.
-
-So you will see three parties in the partyRelations array.
-
-The address is also embedded inside the party record.
-
-Let me show you the first party.
-
-Here it is.
-
-So we have partyIdentifier, partyRelationshipType, partyRelationStartDateTime and the partyAddress.
-
-And that's all about the data and the transformation.
-
-You have three input tables.
-
-You can download the sample data files for those three input tables.
-
-I also showed you one output JSON sample.
-
-You can download the sample JSON output.
-
-I recommend you download all these data files
-
-and look at the input and output samples to understand the mapping and transformation requirements.
-
-In the actual project also, you will be given requirements in the same way.
-
-You will get the input and the desired output.
-
-Then you are supposed to work out the transformation logic to achieve it.
+In our case, the operation is always INSERT, and the oldValue is NULL. 
 
 
+But some fields are combined and have different rules. Let's look at the contractTitle:
 
+```json
+        "contractTitle": {
+            "operation": "INSERT",
+            "newValue": [
+                {
+                    "contractTitleLineType": "lgl_ttl_ln_1",
+                    "contractTitleLine": "Acosta Inc"
+                },
+                {
+                    "contractTitleLineType": "lgl_ttl_ln_2",
+                    "contractTitleLine": "David Walker"
+                }
+            ]
+        },
+```
+
+So the contract title is an array of all the legal titles from the account table. Let's see the sample data. 
+
+<img src="pics/71-tables-contractTitle.png" width="1000" />
+<br>
+<br>
+
+Look at the third record. Acosta Inc is the legal title one, and David walker is the legal title two. Now come back to the JSON message. Both legal titles are combined and sent into an array of legal titles. So this is another complexity. 
+
+The rest of the fields are simple, and you can easily understand the mapping from the account table to the JSON message.
+
+
+Now let's come to the partyRelations. The partyRelations is an array of all the parties and their address. This account has got three associated parties. So you will see three parties in the partyRelations array. The address is also embedded inside the party record. Let me show you the first party. Here it is.
+
+
+```json
+"partyRelations": [
+            {
+                "partyIdentifier": {
+                    "operation": "INSERT",
+                    "newValue": "9823462817"
+                },
+                "partyRelationshipType": {
+                    "operation": "INSERT",
+                    "newValue": "F-N"
+                },
+                "partyRelationStartDateTime": {
+                    "operation": "INSERT",
+                    "newValue": "2018-05-16T09:53:04.000+05:30"
+                },
+                "partyAddress": {
+                    "operation": "INSERT",
+                    "newValue": {
+                        "addressLine1": "251 Lee Tunnel",
+                        "addressLine2": "09795 Tara Station Suite 264",
+                        "addressCity": "New Michelleborough",
+                        "addressPostalCode": "05505",
+                        "addressCountry": "United States",
+                        "addressStartDate": "2019-04-20"
+                    }
+                }
+            },
+            {
+                "partyIdentifier": {
+                    "operation": "INSERT",
+                    "newValue": "9823462820"
+                },
+                "partyRelationshipType": {
+                    "operation": "INSERT",
+                    "newValue": "F-S"
+                },
+                "partyRelationStartDateTime": {
+                    "operation": "INSERT",
+                    "newValue": "2017-11-20T14:18:05.000+05:30"
+                }
+            },
+            {
+                "partyIdentifier": {
+                    "operation": "INSERT",
+                    "newValue": "9823462821"
+                },
+                "partyRelationshipType": {
+                    "operation": "INSERT",
+                    "newValue": "F-S"
+                },
+                "partyRelationStartDateTime": {
+                    "operation": "INSERT",
+                    "newValue": "2018-07-19T18:56:57.000+05:30"
+                }
+            }
+        ]
+```
+
+
+So we have partyIdentifier, partyRelationshipType, partyRelationStartDateTime and the partyAddress. And that's all about the data and the transformation. 
+
+We have three input tables. You can download the sample data files for those three input tables. I also showed you one output JSON sample. You can download the sample JSON output. I recommend you download all these data files and look at the input and output samples to understand the mapping and transformation requirements. In the actual project also, you will be given requirements in the same way. You will get the input and the desired output. Then you are supposed to work out the transformation logic to achieve it.
 
 
 
